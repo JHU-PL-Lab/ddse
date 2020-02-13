@@ -147,6 +147,7 @@ and _create_end_of_block_map_for_body (b : abstract_clause_body) =
   | Abs_value_body v ->
     begin
       match v with
+      | Abs_value_record _ -> Annotated_clause_map.empty
       | Abs_value_function f -> _create_end_of_block_map_for_function f
       | Abs_value_int -> Annotated_clause_map.empty
       | Abs_value_bool _ -> Annotated_clause_map.empty
@@ -158,6 +159,8 @@ and _create_end_of_block_map_for_body (b : abstract_clause_body) =
     _merge_maps
       (create_end_of_block_map acls1)
       (create_end_of_block_map acls2)
+  | Abs_match_body _ -> Annotated_clause_map.empty
+  | Abs_projection_body _ -> Annotated_clause_map.empty
   | Abs_binary_operation_body (_,_,_) -> Annotated_clause_map.empty
 
 and _create_end_of_block_map_for_function (f : abstract_function_value) =

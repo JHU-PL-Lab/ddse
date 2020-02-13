@@ -70,8 +70,12 @@ let prepare_environment (e : expr) (cfg : ddpa_graph)
     | Conditional_body (_, e1, e2) ->
       Enum.append
         (enum_all_functions_in_expr e1) (enum_all_functions_in_expr e2)
+    | Match_body (_, _)
+    | Projection_body (_, _) ->
+      Enum.empty ()
   and enum_all_functions_in_value value : function_value Enum.t =
     match value with
+    | Value_record _ -> Enum.empty ()
     | Value_function(Function_value(_,e) as f) ->
       Enum.append (Enum.singleton f) @@ enum_all_functions_in_expr e
     | Value_int _
@@ -113,6 +117,8 @@ let prepare_environment (e : expr) (cfg : ddpa_graph)
           | Var_body _
           | Input_body
           | Appl_body (_, _)
+          | Match_body (_, _)
+          | Projection_body (_, _)
           | Binary_operation_body (_, _, _) -> []
           | Conditional_body (_, e1, e2) ->
             e1 :: e2 :: expr_flatten e1 @ expr_flatten e2
@@ -150,6 +156,10 @@ let prepare_environment (e : expr) (cfg : ddpa_graph)
   }
 ;;
 
+(* The type of the symbolic interpreter's cache key.  The arguments are the
+   lookup stack, the clause identifying the program point at which lookup is
+   proceeding, and the relative call stack at this point.
+*)
 type 'a interpreter_cache_key =
   | Cache_lookup :
       Ident.t list * annotated_clause * Relative_stack.t ->
@@ -184,8 +194,8 @@ struct
     match key with
     | Cache_lookup(lookup_stack, acl, relative_stack) ->
       Format.fprintf formatter "lookup(%s,%s,%s)"
-        (Jhupllib.Pp_utils.pp_to_string (Jhupllib.Pp_utils.pp_list pp_ident)
-           lookup_stack)
+        (Jhupllib.Pp_utils.pp_to_string
+           (Jhupllib.Pp_utils.pp_list pp_ident) lookup_stack)
         (show_brief_annotated_clause acl)
         (Relative_stack.show relative_stack)
   ;;
@@ -267,13 +277,14 @@ struct
      dealing with pairs in the lookup definition since the mathematical notation
      is... unpleasant.
 
-     This incurs an obligation: we technically need to show that all of the stacks
-     are the same.  In the "stack=" variation, two distinct stacks would lead to
-     unsatisfiable formulae; here, if two different stacks are returned, we must
-     zero the computation.  Conveniently, however, this never occurs: all lookups
-     respect the stack discipline and the function call decision set is shared
-     between them.  Therefore, all stacks *will* be the same; we needn't verify,
-     which is good because it'd make the code quite a lot sloppier.
+     This incurs an obligation: we technically need to show that all of the
+     stacks are the same.  In the "stack=" variation, two distinct stacks would
+     lead to unsatisfiable formulae; here, if two different stacks are returned,
+     we must zero the computation.  Conveniently, however, this never occurs:
+     all lookups respect the stack discipline and the function call decision set
+     is shared between them.  Therefore, all stacks *will* be the same; we
+     needn't verify, which is good because it'd make the code quite a lot
+     sloppier.
   *)
   let rec lookup
       (env : lookup_environment)
@@ -300,7 +311,10 @@ struct
     in
     let _ = zeromsg in
     let%bind () = pause () in
-    let recurse lookup_stack' acl0' relstack' =
+    let recurse
+        (lookup_stack' : Ident.t list)
+        (acl0' : annotated_clause)
+        (relstack' : Relative_stack.t) =
       lazy_logger `trace
         (fun () ->
            Printf.sprintf
@@ -409,14 +423,18 @@ struct
         (* ### Value Discard rule ### *)
         begin
           (* Lookup stack must NOT be a singleton *)
-          let%orzero lookup_var :: lookup_var' :: lookup_stack' = lookup_stack in
+          (* TODO: verify that this still has the desired intent.  What if
+             query_element isn't a variable? *)
+          let%orzero lookup_var :: query_element :: lookup_stack' =
+            lookup_stack
+          in
           (* This must be a value assignment clause defining that variable. *)
           let%orzero Unannotated_clause(
               Abs_clause(Abs_var x,Abs_value_body _)) = acl1
           in
           [%guard equal_ident x lookup_var];
           (* We found the variable, so toss it and keep going. *)
-          recurse (lookup_var' :: lookup_stack') acl1 relstack
+          recurse (query_element :: lookup_stack') acl1 relstack
         end;
         (* ### Alias rule ### *)
         begin
@@ -493,8 +511,8 @@ struct
         begin
           (* Grab variable from lookup stack *)
           let%orzero x :: lookup_stack' = lookup_stack in
-          (* This must be a binding enter clause which DOES NOT define our lookup
-             variable. *)
+          (* This must be a binding enter clause which DOES NOT define our
+             lookup variable. *)
           let%orzero Binding_enter_clause(Abs_var x'',Abs_var x',c) = acl1 in
           [%guard not @@ equal_ident x x''];
           (* Build the popped relative stack. *)
@@ -504,7 +522,9 @@ struct
           let cc = Ident_map.find xr env.le_clause_mapping in
           let%bind () = record_decision relstack x'' cc x' in
           (* Look up the definition of the function. *)
-          let%bind (function_symbol, _) = recurse [xf] acl1 relstack' in
+          let%bind (function_symbol, _) =
+            recurse [xf] acl1 relstack'
+          in
           (* Require this function be assigned to that variable. *)
           let fv = Ident_map.find x'' env.le_function_parameter_mapping in
           let%bind () = record_formula @@
@@ -512,7 +532,10 @@ struct
           in
           (* Proceed to look up the variable in the context of the function's
              definition. *)
-          recurse (xf :: x :: lookup_stack') acl1 relstack'
+          recurse
+            (xf :: x :: lookup_stack')
+            acl1
+            relstack'
         end;
         (* ### Function Exit rule ### *)
         begin
@@ -609,6 +632,46 @@ struct
           in
           (* Proceed to look up the value returned by this branch. *)
           recurse (x' :: lookup_stack') acl1 relstack
+        end;
+        (* Record projection handling (not a written rule) *)
+        begin
+          (* Don't process the record projection unless we're ready to move
+             on: we need a variable on top of the stack. *)
+          let%orzero lookup_var :: lookup_stack' = lookup_stack in
+          (* This must be a record projection clause which defines our
+             variable. *)
+          let%orzero Unannotated_clause(
+              Abs_clause(Abs_var x, Abs_projection_body(Abs_var x', lbl))) =
+            acl1
+          in
+          [%guard equal_ident x lookup_var];
+          (* Look up the record itself and identify the symbol it uses. *)
+          (* We ignore the stacks here intentionally; see note 1 above. *)
+          let%bind (record_symbol, _) = recurse [x'] acl1 relstack in
+          (* Now record the constraint that the lookup variable must be the
+             projection of the label from that record. *)
+          let lookup_symbol = Symbol(lookup_var, relstack) in
+          let%bind () = record_formula @@
+            Formula(lookup_symbol,
+                    Formula_expression_projection(record_symbol, lbl))
+          in
+          (* We should have a "further" clause similar to the Binop rule: if the
+             lookup stack is non-empty, we have to look up all that stuff to
+             make sure this control flow is valid.  That should never happen
+             because our projection only works on non-functions and functions
+             are the only non-bottom elements of the lookup stack.  So instead,
+             we'll just skip the check here and play defensively; it saves us
+             a bind. *)
+          if not @@ List.is_empty lookup_stack' then begin
+            raise @@ Jhupllib.Utils.Not_yet_implemented
+              "Non-singleton lookup stack in Binop rule!"
+          end;
+          (* Now check to make sure that this control flow exists. *)
+          let%bind (_, stack) =
+            recurse [env.le_first_var] acl1 relstack
+          in
+          (* And we're finished. *)
+          return (lookup_symbol, stack)
         end;
         (* Start-of-block and end-of-block handling (not actually a rule) *)
         begin

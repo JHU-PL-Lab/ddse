@@ -17,6 +17,7 @@ type formula_expression =
   | Formula_expression_binop of symbol * binary_operator * symbol
   | Formula_expression_alias of symbol
   | Formula_expression_value of value
+  | Formula_expression_projection of symbol * ident
 [@@deriving eq, ord, to_yojson]
 ;;
 
@@ -33,6 +34,10 @@ let pp_formula_expression : formula_expression pretty_printer =
     pp_symbol formatter x;
   | Formula_expression_value v ->
     pp_value formatter v;
+  | Formula_expression_projection(x,lbl) ->
+    pp_symbol formatter x;
+    Format.pp_print_char formatter '.';
+    pp_ident formatter lbl;
 ;;
 
 let pp_formula_expression_brief : formula_expression pretty_printer =
@@ -48,6 +53,10 @@ let pp_formula_expression_brief : formula_expression pretty_printer =
     pp_symbol formatter x;
   | Formula_expression_value v ->
     Ast_pp_brief.pp_value formatter v;
+  | Formula_expression_projection(x,lbl) ->
+    pp_symbol formatter x;
+    Format.pp_print_char formatter '.';
+    pp_ident formatter lbl;
 ;;
 
 (** The type of formulae which are generated during symbolic interpretation. *)

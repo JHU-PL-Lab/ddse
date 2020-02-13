@@ -27,20 +27,28 @@ rule token = parse
   | comment                          { incr_lineno lexbuf; token lexbuf }
   | whitespace                       { token lexbuf }
   | newline                          { incr_lineno lexbuf; token lexbuf }
+  | "{"                              { OPEN_BRACE }
+  | "}"                              { CLOSE_BRACE }
   | "("                              { OPEN_PAREN }
   | ")"                              { CLOSE_PAREN }
   | ";"                              { SEMICOLON }
+  | ","                              { COMMA }
   | "="                              { EQUALS }
   | "->"                             { ARROW }
   | "?"                              { QUESTION_MARK }
+  | "~"                              { TILDE }
   | ":"                              { COLON }
+  | "."                              { DOT }
   | "input"                          { KEYWORD_INPUT }
   | "fun"                            { KEYWORD_FUN }
+  | "int"                            { KEYWORD_INT }
   | "true"                           { KEYWORD_TRUE }
   | "false"                          { KEYWORD_FALSE }
   | "and"                            { KEYWORD_AND }
   | "or"                             { KEYWORD_OR }
   | "xor"                            { KEYWORD_XOR }
+  | "any"                            { KEYWORD_ANY }
+  | "_"                              { UNDERSCORE }
   | "-"? digit+ as n                 { INT_LITERAL (int_of_string n) }
   | "+"                              { PLUS }
   | "-"                              { MINUS }

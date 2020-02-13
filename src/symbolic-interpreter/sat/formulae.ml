@@ -15,6 +15,7 @@ let lazy_logger = Logger_utils.make_lazy_logger "Formulae";;
 type symbol_type =
   | IntSymbol
   | BoolSymbol
+  | RecordSymbol
   | FunctionSymbol of function_value
 [@@deriving eq]
 ;;
@@ -23,6 +24,7 @@ let pp_symbol_type formatter t =
   match t with
   | IntSymbol -> Format.pp_print_string formatter "int"
   | BoolSymbol -> Format.pp_print_string formatter "bool"
+  | RecordSymbol -> Format.pp_print_string formatter "record"
   | FunctionSymbol fv -> Ast_pp_brief.pp_function_value formatter fv
 ;;
 
@@ -207,6 +209,7 @@ let add (formula : formula) (collection : t) : t =
         | Formula_expression_value v ->
           let typ =
             match v with
+            | Value_record _ -> RecordSymbol
             | Value_function f -> FunctionSymbol f
             | Value_int _ -> IntSymbol
             | Value_bool _ -> BoolSymbol
@@ -219,6 +222,10 @@ let add (formula : formula) (collection : t) : t =
           _assign symbol1 tin1 collection';
           _assign symbol2 tin2 collection';
           _assign symbol tout collection';
+        | Formula_expression_projection (symbol', _label) ->
+          (* We know that the thing being projected from must be a record, but
+             we don't know anything else. *)
+          _assign symbol' RecordSymbol collection';
       end;
       collection'
     end

@@ -17,6 +17,7 @@ open Sat_types;;
 type symbol_type =
   | IntSymbol
   | BoolSymbol
+  | RecordSymbol
   | FunctionSymbol of function_value
 ;;
 

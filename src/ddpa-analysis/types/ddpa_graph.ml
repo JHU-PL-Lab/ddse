@@ -114,11 +114,16 @@ and lift_clause_body b =
   | Appl_body(x,x') -> Abs_appl_body(lift_var x, lift_var x')
   | Conditional_body(x,e1,e2) ->
     Abs_conditional_body(lift_var x,lift_expr e1,lift_expr e2)
+  | Match_body(x,p) ->
+    Abs_match_body(lift_var x,p)
+  | Projection_body(x,l) ->
+    Abs_projection_body(lift_var x,l)
   | Binary_operation_body(x1,op,x2) ->
     Abs_binary_operation_body(lift_var x1, op, lift_var x2)
 
 and lift_value v =
   match v with
+  | Value_record r -> Abs_value_record(lift_record_value r)
   | Value_function f -> Abs_value_function(lift_function_value f)
   | Value_int _ -> Abs_value_int
   | Value_bool b -> Abs_value_bool b
@@ -128,4 +133,7 @@ and lift_var (Var(i,_)) =
 
 and lift_function_value (Function_value(x,e)) =
   Abs_function_value(lift_var x, lift_expr e)
+
+and lift_record_value (Record_value m) =
+  Abs_record_value(Ident_map.map lift_var m)
 ;;

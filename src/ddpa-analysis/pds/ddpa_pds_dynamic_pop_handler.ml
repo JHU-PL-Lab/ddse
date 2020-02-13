@@ -1,6 +1,9 @@
 open Batteries;;
 open Jhupllib;;
 
+open Odefa_ast;;
+
+open Ast;;
 open Ddpa_abstract_ast;;
 open Ddpa_context_stack;;
 open Ddpa_utils;;
@@ -143,6 +146,20 @@ struct
              ; Push(Capture capture_size_1)
              ; Push(Lookup_var(x1))
              ]
+    | Record_projection_lookup(x,x',l) ->
+      let%orzero (Lookup_var x0) = element in
+      [%guard (equal_abstract_var x0 x)];
+      return [ Push(Project l)
+             ; Push(Lookup_var x')
+             ]
+    | Record_projection_1_of_2 ->
+      let%orzero (Continuation_value v) = element in
+      let%orzero (Abs_value_record(r)) = v in
+      return [ Pop_dynamic_targeted(Record_projection_2_of_2 r) ]
+    | Record_projection_2_of_2(Abs_record_value(m)) ->
+      let%orzero (Project lbl) = element in
+      [%guard (Ident_map.mem lbl m)];
+      return @@ [ Push(Lookup_var(Ident_map.find lbl m)) ]
     | Binary_operator_lookup_init(x1,x2,x3,acl1,ctx1,acl0,ctx0) ->
       let%orzero Lookup_var(x1') = element in
       [%guard (equal_abstract_var x1 x1') ];

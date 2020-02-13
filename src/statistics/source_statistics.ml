@@ -142,11 +142,19 @@ and calc_clause_body (b : clause_body) (db : depth_bindings)
   | Conditional_body (x, e1, e2) ->
     ss_var_ref x db @@
     ss_join (calc_expr e1 db) (calc_expr e2 db)
+  | Match_body(x, _) ->
+    ss_var_ref x db empty
+  | Projection_body(x, _) ->
+    ss_var_ref x db empty
   | Binary_operation_body (x1, _, x2) ->
     ss_vars_ref [x1; x2] db empty
 
 and calc_value (v : value) (db : depth_bindings) : source_statistics =
   match v with
+  | Value_record(Record_value m) ->
+    { empty with
+      ss_num_variable_references = Ident_map.cardinal m
+    }
   | Value_function f ->
     let ss = calc_function_value f db in
     { ss with

@@ -77,10 +77,13 @@ and _abs_exprs_of_clause (Abs_clause(_,b)) =
   | Abs_var_body _
   | Abs_appl_body _
   | Abs_input_body
+  | Abs_match_body _
+  | Abs_projection_body _
   | Abs_binary_operation_body _ -> Enum.empty ()
 
 and _abs_exprs_of_value v =
   match v with
+  | Abs_value_record _ -> Enum.empty ()
   | Abs_value_function(Abs_function_value(_,e)) -> Enum.singleton e
   | Abs_value_int
   | Abs_value_bool _ -> Enum.empty ()

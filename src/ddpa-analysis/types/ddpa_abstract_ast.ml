@@ -27,6 +27,7 @@ type abstract_ref_value =
 
 (** A type to express abstract values. *)
 type abstract_value =
+  | Abs_value_record of abstract_record_value
   | Abs_value_function of abstract_function_value
   | Abs_value_int
   | Abs_value_bool of bool
@@ -43,6 +44,8 @@ and abstract_clause_body =
   | Abs_input_body
   | Abs_appl_body of abstract_var * abstract_var
   | Abs_conditional_body of abstract_var * abstract_expr * abstract_expr
+  | Abs_match_body of abstract_var * pattern
+  | Abs_projection_body of abstract_var * ident
   | Abs_binary_operation_body of abstract_var * binary_operator * abstract_var
 [@@deriving eq, ord, to_yojson]
 
@@ -65,6 +68,7 @@ let rec pp_abstract_function_value formatter (Abs_function_value(x,e)) =
 
 and pp_abstract_value formatter v =
   match v with
+  | Abs_value_record r -> pp_abstract_record_value formatter r
   | Abs_value_function f -> pp_abstract_function_value formatter f
   | Abs_value_int -> Format.pp_print_string formatter "int"
   | Abs_value_bool b ->
@@ -92,6 +96,10 @@ and pp_abstract_clause_body formatter b =
       pp_abstract_var x
       pp_abstract_expr e1
       pp_abstract_expr e2
+  | Abs_match_body(x,p) ->
+    Format.fprintf formatter "%a ~ %a" pp_abstract_var x pp_pattern p
+  | Abs_projection_body(x,l) ->
+    Format.fprintf formatter "%a.%a" pp_abstract_var x pp_ident l
   | Abs_binary_operation_body(x1,op,x2) ->
     Format.fprintf formatter "%a %a %a"
       pp_abstract_var x1 pp_binary_operator op pp_abstract_var x2
@@ -109,6 +117,7 @@ let rec pp_brief_abstract_function_value formatter (Abs_function_value(x,_)) =
 
 and pp_brief_abstract_value formatter v =
   match v with
+  | Abs_value_record r -> pp_brief_abstract_record_value formatter r
   | Abs_value_function f -> pp_brief_abstract_function_value formatter f
   | Abs_value_int -> Format.pp_print_string formatter "int"
   | Abs_value_bool b ->
@@ -134,6 +143,10 @@ and pp_brief_abstract_clause_body formatter b =
     Format.fprintf formatter
       "%a @[<4>? ...@]"
       pp_abstract_var x
+  | Abs_match_body(x,_) ->
+    Format.fprintf formatter "%a ~ ..." pp_abstract_var x
+  | Abs_projection_body(x,l) ->
+    Format.fprintf formatter "%a.%a" pp_abstract_var x pp_ident l
   | Abs_binary_operation_body(x1,op,x2) ->
     Format.fprintf formatter "%a %a %a"
       pp_abstract_var x1 pp_binary_operator op pp_abstract_var x2
@@ -158,6 +171,8 @@ let is_abstract_clause_immediate (Abs_clause(_,b)) =
   | Abs_var_body _
   | Abs_value_body _
   | Abs_input_body
+  | Abs_match_body _
+  | Abs_projection_body _
   | Abs_binary_operation_body _ -> true
   | Abs_appl_body _
   | Abs_conditional_body _ -> false

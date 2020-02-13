@@ -90,6 +90,17 @@ struct
         "then" branch (true) or the "else" branch (false).  The state and
         context refer to this wiring clause so a jump can be issued after the
         subject is checked in this branch. *)
+    | Record_projection_lookup of abstract_var * abstract_var * ident
+    (** Represents the start of a record projection.  If the first variable
+        matches our lookup target, then we've discovered that we are looking
+        up the projection of the ident label from a record stored in the
+        second variable. *)
+    | Record_projection_1_of_2
+    (** Represents the processing of a record projection on the stack.  This
+        action requires two steps: one to grab the record and one to grab the
+        value. *)
+    | Record_projection_2_of_2 of abstract_record_value
+    (** The second step of handling record projection. *)
     | Binary_operator_lookup_init of
         abstract_var * abstract_var * abstract_var *
         annotated_clause * C.t * annotated_clause * C.t

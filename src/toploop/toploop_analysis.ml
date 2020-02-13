@@ -1,8 +1,10 @@
 open Batteries;;
 open Jhupllib;;
 
+open Odefa_ast;;
 open Odefa_ddpa;;
 
+open Ast;;
 open Toploop_analysis_types;;
 open Toploop_ddpa_wrapper_types;;
 open Toploop_utils;;
@@ -35,9 +37,20 @@ struct
     | Abs_value_body _
     | Abs_var_body _
     | Abs_input_body
-    | Abs_conditional_body _ ->
+    | Abs_conditional_body _
+    | Abs_match_body _ ->
       (* There's nothing this body that can be inconsistent. *)
       zero ()
+    | Abs_projection_body(x,i) ->
+      let%bind v = lookup x in
+      begin
+        match v with
+        | Abs_value_record(Abs_record_value(m)) ->
+          if Ident_map.mem i m
+          then zero ()
+          else return @@ Projection_of_absent_label(x_clause,x,v,i)
+        | _ -> return @@ Projection_of_non_record(x_clause,x,v)
+      end
     | Abs_appl_body(xf,xa) ->
       let%bind v = lookup xf in
       begin

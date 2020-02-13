@@ -29,6 +29,17 @@ type error =
   (** Represents the application of a non-function value.  The arguments
       are the variable identifying the call site clause, the invoked variable,
       and the abstract non-function value which appeared at the call site. *)
+  | Projection_of_non_record of abstract_var * abstract_var * abstract_value
+  (** Represents the projection of a label from a non-record value.  The
+      arguments are the variable identifying the clause containing the
+      projection, the record variable, and the abstract value from which the
+      projection occurred. *)
+  | Projection_of_absent_label of
+      abstract_var * abstract_var * abstract_value * ident
+  (** Represents the projection of a label from a record value which does not
+      have that label.  The arguments are the variable identifying the clause
+      containing the projection, the record variable, the abstract value from
+      which the projection occurred, and the ident we failed to project. *)
   | Invalid_binary_operation of
       abstract_var * binary_operator * abstract_var * abstract_value *
       abstract_var * abstract_value

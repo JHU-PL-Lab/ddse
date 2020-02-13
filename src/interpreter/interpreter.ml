@@ -59,10 +59,15 @@ and var_replace_clause_body fn r =
   | Appl_body(x1, x2) -> Appl_body(fn x1, fn x2)
   | Conditional_body(x,e1,e2) ->
     Conditional_body(fn x, var_replace_expr fn e1, var_replace_expr fn e2)
+  | Match_body(x,p) ->
+    Match_body(fn x,p)
+  | Projection_body(x,l) ->
+    Projection_body(fn x,l)
   | Binary_operation_body(x1,op,x2) -> Binary_operation_body(fn x1, op, fn x2)
 
 and var_replace_value fn v =
   match v with
+  | Value_record _ -> v
   | Value_function(f) -> Value_function(var_replace_function_value fn f)
   | Value_int n -> Value_int n
   | Value_bool b -> Value_bool b
@@ -111,6 +116,28 @@ let cond_wire (conditional_site_x : var) (Expr(body)) =
 ;;
 
 let stdin_input_source (_:var) = Value_int(read_int());;
+
+let rec matches env x p =
+  let v = lookup env x in
+  match v,p with
+  | _,Any_pattern -> true
+  | Value_record(Record_value(els)),Record_pattern(els') ->
+    els'
+    |> Ident_map.enum
+    |> Enum.for_all
+      (fun (i,p') ->
+         try
+           matches env (Ident_map.find i els) p'
+         with
+         | Not_found -> false
+      )
+  | Value_function(Function_value(_)),Fun_pattern
+  | Value_int _,Int_pattern ->
+    true
+  | Value_bool actual_boolean,Bool_pattern pattern_boolean ->
+    actual_boolean = pattern_boolean
+  | _ -> false
+;;
 
 let rec evaluate
     ?input_source:(input_source=stdin_input_source)
@@ -178,6 +205,31 @@ let rec evaluate
                         (show_value v)))
         in
         recurse @@ cond_wire x e_target @ t
+      | Match_body(x',p) ->
+        let result = Value_bool(matches env x' p) in
+        Environment.add env x result;
+        recurse t
+      | Projection_body(x',l) ->
+        begin
+          match lookup env x' with
+          | Value_record(Record_value(els)) as r ->
+            begin
+              try
+                let x'' = Ident_map.find l els in
+                let v = lookup env x'' in
+                Environment.add env x v;
+                evaluate env (Some x) t
+              with
+              | Not_found ->
+                raise @@ Evaluation_failure(
+                  Printf.sprintf "cannot project %s from %s: not present"
+                    (show_ident l) (show_value r))
+            end
+          | v ->
+            raise @@ Evaluation_failure(
+              Printf.sprintf "cannot project %s from non-record value %s"
+                (show_ident l) (show_value v))
+        end
       | Binary_operation_body(x1,op,x2) ->
         let v1 = lookup env x1 in
         let v2 = lookup env x2 in

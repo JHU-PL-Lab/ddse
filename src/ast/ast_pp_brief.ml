@@ -58,11 +58,20 @@ let pp_binary_operator formatter binop =
 ;;
 let show_binary_operator = pp_to_string pp_binary_operator;;
 
+let pp_record_value formatter (Record_value(els)) =
+  let pp_element formatter (k,v) =
+    Format.fprintf formatter "%a=%a" pp_ident k pp_var v
+  in
+  pp_concat_sep_delim "{" "}" "," pp_element formatter @@ Ident_map.enum els
+;;
+let show_record_value = pp_to_string pp_record_value;;
+
 let rec pp_function_value formatter (Function_value(x,_)) =
   Format.fprintf formatter "fun %a -> ..." pp_var x
 
 and pp_value formatter v =
   match v with
+  | Value_record(r) -> pp_record_value formatter r
   | Value_function(f) -> pp_function_value formatter f
   | Value_int(n) -> Format.pp_print_int formatter n
   | Value_bool(b) -> Format.pp_print_bool formatter b
@@ -77,6 +86,11 @@ and pp_clause_body formatter b =
     Format.fprintf formatter
       "%a @[<4>? ...@]"
       pp_var x
+  | Match_body(x,_) ->
+    Format.fprintf formatter
+      "%a ~ ..." pp_var x
+  | Projection_body(x,l) ->
+    Format.fprintf formatter "%a.%a" pp_var x pp_ident l
   | Binary_operation_body(x1,op,x2) ->
     Format.fprintf formatter "%a %a %a"
       pp_var x1 pp_binary_operator op pp_var x2

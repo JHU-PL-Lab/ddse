@@ -223,6 +223,28 @@ struct
               )
           end
           ;
+          (* ********** Pattern Matching ********** *)
+          (* TODO *)
+          (* ********** Record Projection ********** *)
+          (* Record Projection Start *)
+          begin
+            let%orzero
+              (Unannotated_clause(Abs_clause(
+                   x1, Abs_projection_body(x2,lbl)))) = acl1
+            in
+            (* x1 = x2.lbl *)
+            return ( Record_projection_lookup(x1,x2,lbl),
+                     Program_point_state(acl1,ctx)
+                   )
+          end
+          ;
+          (* Record Projection Stop *)
+          begin
+            return ( Record_projection_1_of_2,
+                     Program_point_state(acl0,ctx)
+                   )
+          end
+          ;
           (* ********** Operations ********** *)
           (* Binary Operation Start *)
           begin

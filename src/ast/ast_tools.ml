@@ -81,6 +81,10 @@ let use_occurrences expression =
         Var_set.of_list [function_; actual_parameter]
       | Conditional_body (subject, _, _) ->
         Var_set.singleton subject
+      | Match_body (subject, _) ->
+        Var_set.singleton subject
+      | Projection_body(subject, _) ->
+        Var_set.singleton subject
       | Binary_operation_body (left_operand, _, right_operand) ->
         Var_set.of_list [left_operand; right_operand]
   )
@@ -148,6 +152,8 @@ and check_scope_clause_body
     _bind_filt bound site_x [x] @
     check_scope_expr bound e1 @
     check_scope_expr bound e2
+  | Match_body (Var(x,_), _) -> _bind_filt bound site_x [x]
+  | Projection_body (Var(x,_), _) -> _bind_filt bound site_x [x]
   | Binary_operation_body (Var(x1,_), _, Var(x2,_)) ->
     _bind_filt bound site_x [x1;x2]
 ;;
@@ -186,11 +192,17 @@ and map_clause_body_vars (fn : Var.t -> Var.t) (b : clause_body) : clause_body =
   | Appl_body (x1,x2) -> Appl_body(fn x1, fn x2)
   | Conditional_body (x, e1, e2) ->
     Conditional_body (fn x, map_expr_vars fn e1, map_expr_vars fn e2)
+  | Match_body(x, p) ->
+    Match_body(fn x, p)
+  | Projection_body(x, l) ->
+    Projection_body(fn x, l)
   | Binary_operation_body (x1, op, x2) ->
     Binary_operation_body (fn x1, op, fn x2)
 
 and map_value_vars (fn : Var.t -> Var.t) (v : value) : value =
   match (v : value) with
+  | Value_record(Record_value m) ->
+    Value_record(Record_value(Ident_map.map fn m))
   | Value_function f -> Value_function(map_function_vars fn f)
   | Value_int _ -> v
   | Value_bool _ -> v

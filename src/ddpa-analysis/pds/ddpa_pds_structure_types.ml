@@ -1,7 +1,9 @@
 open Jhupllib;;
 
+open Odefa_ast;;
 open Odefa_utils;;
 
+open Ast;;
 open Ddpa_abstract_ast;;
 open Ddpa_context_stack;;
 open Interface_utils;;
@@ -48,6 +50,7 @@ struct
     | Continuation_value of abstract_value
     | Real_flow_huh
     | Require_value of abstract_value
+    | Project of ident
     | Binary_operation
   [@@deriving eq, ord, show, to_yojson]
   ;;

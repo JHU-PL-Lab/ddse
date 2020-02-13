@@ -121,6 +121,7 @@ and function_value =
 
 (** A type to represent values. *)
 and value =
+  | Value_record of record_value
   | Value_function of function_value
   | Value_int of int
   | Value_bool of bool
@@ -133,6 +134,8 @@ and clause_body =
   | Input_body
   | Appl_body of var * var
   | Conditional_body of var * expr * expr
+  | Match_body of var * pattern
+  | Projection_body of var * ident
   | Binary_operation_body of var * binary_operator * var
 [@@deriving eq, ord, to_yojson]
 
@@ -143,6 +146,15 @@ and clause =
 
 (** A type to represent expressions. *)
 and expr = Expr of clause list [@@deriving eq, ord, to_yojson]
+
+(** A type representing conditional patterns. *)
+and pattern =
+  | Record_pattern of pattern Ident_map.t
+  | Fun_pattern
+  | Int_pattern
+  | Bool_pattern of bool
+  | Any_pattern
+[@@deriving eq, ord, yojson]
 ;;
 
 module Value =
