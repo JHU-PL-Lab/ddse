@@ -52,7 +52,7 @@ let () =
              print_string "* ";
              print_endline @@ Ast_wellformedness.show_illformedness ill;
           );
-        ignore @@ Pervasives.exit 1
+        ignore @@ Stdlib.exit 1
       end;
   end;
   (* Generate tests *)

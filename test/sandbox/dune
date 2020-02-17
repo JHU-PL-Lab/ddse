@@ -1,0 +1,24 @@
+(executable
+  (name sandbox)
+  (libraries
+    batteries
+    jhupllib
+    odefa.ast
+    odefa.ddpa
+    odefa.parser
+    odefa.symbolic-interpreter
+    odefa.test-generation
+    odefa.toploop
+    odefa.natural
+    oUnit
+    ppx_deriving_yojson
+    yojson
+  )
+  (preprocess
+    (pps
+      ppx_deriving.std
+      ppx_deriving_yojson
+      ocaml-monadic
+    )
+  )
+)

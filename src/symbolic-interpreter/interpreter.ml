@@ -212,7 +212,7 @@ module Interpreter_cache_key_smallest_relative_stack_length_ordering = struct
     | None, Some _ -> -1
     | Some(Some_key(Cache_lookup(_, _, relative_stack_1))),
       Some(Some_key(Cache_lookup(_, _, relative_stack_2))) ->
-      Pervasives.compare
+      Stdlib.compare
         (Relative_stack.length relative_stack_1)
         (Relative_stack.length relative_stack_2)
   ;;
@@ -241,7 +241,7 @@ module Interpreter_cache_key_least_relative_stack_repetition_ordering = struct
       repetitions
   ;;
   let compare (a : t) (b : t) : int =
-    Pervasives.compare (reps a) (reps b)
+    Stdlib.compare (reps a) (reps b)
   ;;
 end;;
 

@@ -1,4 +1,4 @@
-.PHONY: all clean repl test benchmark
+.PHONY: all clean repl sandbox test benchmark
 
 all:
 	dune build
@@ -13,7 +13,9 @@ all:
 	ln -s _build/default/src/translator-main/translator.exe translator
 
 sandbox:
-	dune build test/sandbox.exe
+	dune build test/sandbox/sandbox.exe
+	rm -f sandbox
+	ln -s _build/default/test/sandbox/sandbox.exe sandbox
 
 repl:
 	dune utop src -- -require pdr-programming
@@ -25,6 +27,7 @@ clean:
 	dune clean
 	rm -f ddpa_toploop
 	rm -f translator
+	rm -f sandbox
 
 benchmark:
 	ocaml bench/benchmark.ml

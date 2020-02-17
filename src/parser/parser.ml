@@ -21,7 +21,7 @@ let handle_parse_error buf f =
 ;;
 
 let parse_expressions (input : IO.input) =
-  let buf = Lexing.from_input input in
+  let buf = Lexing.from_channel input in
   let read_expr () =
     handle_parse_error buf @@ fun () ->
     Generated_parser.delim_expr Generated_lexer.token buf
@@ -29,7 +29,7 @@ let parse_expressions (input : IO.input) =
   LazyList.from_while read_expr;;
 
 let parse_program (input : IO.input) =
-  let buf = Lexing.from_input input in
+  let buf = Lexing.from_channel input in
   handle_parse_error buf @@ fun () ->
   Generated_parser.prog Generated_lexer.token buf
 ;;

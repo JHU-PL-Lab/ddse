@@ -97,6 +97,9 @@ let rec _deductive_closure (cset : Constraint.Set.t) : Constraint.Set.t =
     Constraint.Set.union cset generated
   in
   let cset' = closure_step cset in
+  (* print_endline @@
+     Format.sprintf "Deductive closure step:\n\n%s\n\n==>\n\n%s\n\n"
+     (Constraint.Set.show cset) (Constraint.Set.show cset'); *)
   if Constraint.Set.equal cset cset' then
     cset'
   else
@@ -148,7 +151,7 @@ let _get_type_of_symbol (symbol : symbol) (solver : t) : symbol_type option =
 
 let add c solver =
   let cset = solver.solver_constraints in
-  let cset' = _deductive_closure @@ Constraint.Set.add c cset in
+  let cset' = _check_consistency @@ _deductive_closure @@ Constraint.Set.add c cset in
   { solver_constraints = cset' }
 ;;
 
@@ -305,7 +308,9 @@ let solve (solver : t) : solution option =
       (Z3.Solver.get_reason_unknown z3)
 ;;
 
-let solvable solver = Option.is_some @@ solve solver;;
+let solvable solver =
+  Option.is_some @@ solve solver
+;;
 
 let enum solver = Constraint.Set.enum solver.solver_constraints;;
 

@@ -1,7 +1,7 @@
 (alias
   (name runtest)
-  (deps test.exe (glob_files ../test-sources/*))
-  (action (chdir .. (run ./test/test.exe)))
+  (deps test.exe (glob_files ../../test-sources/*))
+  (action (chdir ../.. (run ./test/unittest/test.exe)))
 )
 
 (executable

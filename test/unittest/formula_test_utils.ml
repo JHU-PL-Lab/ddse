@@ -51,11 +51,15 @@ let assert_solvable constraint_list =
 ;;
 
 let assert_unsolvable constraint_list =
+  try
   let formulae = Solver.of_enum @@ List.enum constraint_list in
   if Solver.solvable formulae then
     assert_failure @@
     let msg = indent @@ string_of_constraint_list constraint_list in
     Printf.sprintf "Should NOT be able to solve formula set:\n%s" msg
+  with
+  | Solver.TypeContradiction _ -> ()
+  | Solver.ValueContradiction _ -> ()
 ;;
 
 let assert_solutions constraint_list solutions =
@@ -89,6 +93,6 @@ let assert_symbol_type_error constraint_list =
     let msg = indent @@ string_of_constraint_list constraint_list in
     Printf.sprintf "Should receive symbol type error from formula set:\n%s" msg
   with
-  | Solver.TypeContradiction _ ->
-    ()
+  | Solver.TypeContradiction _ -> ()
+  | Solver.ValueContradiction _ -> ()
 ;;
