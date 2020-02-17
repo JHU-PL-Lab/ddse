@@ -362,16 +362,37 @@ struct
           in
           (* Induce the resulting formula *)
           let lookup_symbol = Symbol(lookup_var, relstack) in
-          let constraint_value =
+          let%bind constraint_value =
             match v with
-            | Value_record(Record_value _m) ->
-              (*Constraint.Record(Ident_map.map (fun x -> Symbol(x, relstack)) m)*)
-              (* FIXME *)
-              raise @@ Jhupllib.Utils.Not_yet_implemented
-                "records in symbolic interpreter"
-            | Value_function f -> Constraint.Function f
-            | Value_int n -> Constraint.Int n
-            | Value_bool b -> Constraint.Bool b
+            | Value_record(Record_value m) ->
+              (* The variables in m are unfreshened and local to this context.
+                 We can look up each of their corresponding symbols and then
+                 put them in a new dictionary for the constraint. *)
+              let mappings =
+                m
+                |> Ident_map.enum
+                |> Enum.map
+                  (fun (lbl, Var(x,_)) ->
+                     (* We ignore the stacks here intentionally; see note 1 above. *)
+                     (* TODO: make sure note 1 justifies this case! *)
+                     let%bind (symbol, _) = recurse [x] acl1 relstack in
+                     return (lbl, symbol)
+                  )
+                |> List.of_enum
+              in
+              (* If only we could generalize monadic sequencing... *)
+              let rec loop mappings map =
+                match mappings with
+                | [] -> return map
+                | h::t ->
+                  let%bind (k,v) = h in
+                  loop t (Ident_map.add k v map)
+              in
+              let%bind record_map = loop mappings Ident_map.empty in
+              return @@ Constraint.Record(record_map)
+            | Value_function f -> return @@ Constraint.Function f
+            | Value_int n -> return @@ Constraint.Int n
+            | Value_bool b -> return @@ Constraint.Bool b
           in
           let%bind () = record_constraint @@
             Constraint.Constraint_value(lookup_symbol, constraint_value)

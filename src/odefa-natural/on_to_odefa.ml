@@ -176,7 +176,7 @@ let rec rec_transform (e1 : On_ast.expr) : On_ast.expr m =
     return @@ On_ast.If (transformed_expr1, transformed_expr2, transformed_expr3)
   (* TODO RECORD *)
   | Record _ -> return e1
-  | RecordProj (e, lab) -> 
+  | RecordProj (e, lab) ->
     let%bind transformed_expr = rec_transform e in
     return @@ On_ast.RecordProj (transformed_expr, lab)
 ;;
@@ -437,8 +437,22 @@ let find_replace_duplicate_naming (e : On_ast.expr) : On_ast.expr m =
       let%bind (new_e2, e2_id_list) = recurse e2 e1_id_list in
       let%bind (new_e3, e3_id_list) = recurse e3 e2_id_list in
       return (On_ast.If(new_e1, new_e2, new_e3), e3_id_list)
-    (* TODO RECORD *)
-    | Record _ | RecordProj (_, _) -> return (e , ident_list)
+    | Record m ->
+      let mappings = List.of_enum @@ On_ast.Ident_map.enum m in
+      let rec loop mappings map id_list =
+        match mappings with
+        | [] -> return (map, id_list)
+        | h::t ->
+          let (lbl,expr) = h in
+          let%bind (new_expr,new_id_list) = recurse expr id_list in
+          let map' = On_ast.Ident_map.add lbl new_expr map in
+          loop t map' new_id_list
+      in
+      let%bind (m,id_list) = loop mappings On_ast.Ident_map.empty ident_list in
+      return (On_ast.Record(m), id_list)
+    | RecordProj (e', lbl) ->
+      let%bind (new_e', e'_id_list) = recurse e' ident_list in
+      return (On_ast.RecordProj(new_e', lbl), e'_id_list)
   in
   let%bind x = recurse e [] in
   return @@ fst x

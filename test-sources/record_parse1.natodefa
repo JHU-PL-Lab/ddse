@@ -4,4 +4,5 @@
 let dummy = 0 in
 let x = input in
 let r = {foo = 1} in
-let target = r.foo
+let target = r.foo in
+target
