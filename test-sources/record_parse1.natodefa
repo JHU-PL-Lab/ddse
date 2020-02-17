@@ -1,0 +1,7 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [ 1 ] !
+
+let dummy = 0 in
+let x = input in
+let r = {foo = 1} in
+let target = r.foo
