@@ -12,7 +12,6 @@ open Generator_types;;
 open Odefa_symbolic_interpreter.Interpreter_types;;
 
 module Symbolic_interpreter = Odefa_symbolic_interpreter;;
-module Formulae = Symbolic_interpreter.Formulae;;
 module Relative_stack = Symbolic_interpreter.Relative_stack;;
 module Solver = Symbolic_interpreter.Solver;;
 
@@ -171,7 +170,7 @@ let rec take_steps
         lazy_logger `trace (fun () -> "Found input sequences!");
         let input_sequence_from_result result =
           let formulae =
-            result.Symbolic_interpreter.Interpreter.er_formulae
+            result.Symbolic_interpreter.Interpreter.er_solver
           in
           match Solver.solve formulae with
           | None ->

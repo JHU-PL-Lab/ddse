@@ -388,6 +388,8 @@ let observe_inconsistency inconsistency expectation =
     match inconsistency with
     | Application_of_non_function (Abs_var ident,_,_,_) -> ident
     | Invalid_binary_operation (Abs_var ident,_,_,_,_,_) -> ident
+    | Projection_of_non_record (Abs_var ident,_,_) -> ident
+    | Projection_of_absent_label (Abs_var ident,_,_,_) -> ident
   in
   match expectation with
   | Expect_analysis_inconsistency_at expected_site ->
@@ -625,7 +627,7 @@ let make_test filename expectations =
                  assert_failure
                    "Test specified input sequence requirement without context model."
              in
-             let generator = Generator.create 
+             let generator = Generator.create
                  ?exploration_policy:(Some (Odefa_symbolic_interpreter.Interpreter.Explore_least_relative_stack_repetition))
                  configuration expr (Ident x) in
              let remaining_input_sequences = ref inputs in

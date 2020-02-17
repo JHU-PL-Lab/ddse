@@ -22,8 +22,8 @@ type evaluation;;
 
 (** The result of an evaluation. *)
 type evaluation_result = {
-  er_formulae : Formulae.t;
-  (** The formulae established during symbolic evaluation. *)
+  er_solver : Solver.t;
+  (** The solver established during symbolic evaluation. *)
 
   er_stack : Relative_stack.concrete_stack;
   (** The stack for the target variable in this evaluation. *)

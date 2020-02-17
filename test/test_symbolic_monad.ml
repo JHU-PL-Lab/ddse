@@ -47,7 +47,7 @@ open Test_cache_key;;
 
 type 'a test_result =
   { tr_value : 'a;
-    tr_formulae : Formulae.t;
+    tr_solver : Solver.t;
     tr_total_steps : int;
     tr_evaluation_steps : int;
     tr_result_steps : int;
@@ -65,7 +65,7 @@ let complete (x : 'a m) : 'a test_result Enum.t =
       |> Enum.map
         (fun er ->
            { tr_value = er.er_value;
-             tr_formulae = er.er_formulae;
+             tr_solver = er.er_solver;
              tr_total_steps = new_steps_so_far;
              tr_evaluation_steps = er.er_evaluation_steps;
              tr_result_steps = er.er_result_steps;
@@ -163,11 +163,11 @@ test_complete_values_with_result_steps Format.pp_print_int (=) computation
 
 _add_test "nondeterminism and state" @@ fun _ ->
 let computation =
-  check_formulae @@
-  let%bind () = record_formula @@ F.set_int F.x 2 in
-  let%bind () = record_formula @@ F.alias F.x F.y in
+  check_constraints @@
+  let%bind () = record_constraint @@ F.set_int F.x 2 in
+  let%bind () = record_constraint @@ F.alias F.x F.y in
   let%bind n = pick @@ List.enum [1;2;3] in
-  let%bind () = record_formula @@ F.set_int F.y n in
+  let%bind () = record_constraint @@ F.set_int F.y n in
   return n
 in
 test_complete_values_with_result_steps Format.pp_print_int (=) computation

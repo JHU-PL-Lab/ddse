@@ -10,7 +10,6 @@ open Ddpa_graph;;
 open Ddpa_utils;;
 open Interpreter_types;;
 open Logger_utils;;
-open Sat_types;;
 
 let lazy_logger = make_lazy_logger "Symbolic_interpreter.Interpreter";;
 
@@ -247,7 +246,7 @@ module Interpreter_cache_key_least_relative_stack_repetition_ordering = struct
 end;;
 
 type evaluation_result = {
-  er_formulae : Formulae.t;
+  er_solver : Solver.t;
   er_stack : Relative_stack.concrete_stack;
   er_solution : (symbol -> value option);
 };;
@@ -363,8 +362,19 @@ struct
           in
           (* Induce the resulting formula *)
           let lookup_symbol = Symbol(lookup_var, relstack) in
-          let%bind () = record_formula @@
-            Formula(lookup_symbol, Formula_expression_value(v))
+          let constraint_value =
+            match v with
+            | Value_record(Record_value _m) ->
+              (*Constraint.Record(Ident_map.map (fun x -> Symbol(x, relstack)) m)*)
+              (* FIXME *)
+              raise @@ Jhupllib.Utils.Not_yet_implemented
+                "records in symbolic interpreter"
+            | Value_function f -> Constraint.Function f
+            | Value_int n -> Constraint.Int n
+            | Value_bool b -> Constraint.Bool b
+          in
+          let%bind () = record_constraint @@
+            Constraint.Constraint_value(lookup_symbol, constraint_value)
           in
           (* If we're at the top of the program, we're finished.  Otherwise, start
              a search for the first variable. *)
@@ -395,12 +405,12 @@ struct
           [%guard equal_ident x lookup_var];
           (* Induce the resulting formula *)
           let lookup_symbol = Symbol(lookup_var, relstack) in
-          let%bind () = record_formula @@
-            Formula(SpecialSymbol SSymTrue,
-                    Formula_expression_binop(
-                      lookup_symbol,
-                      Binary_operator_equal_to,
-                      lookup_symbol))
+          let%bind () = record_constraint @@
+            Constraint.Constraint_binop(
+              SpecialSymbol SSymTrue,
+              lookup_symbol,
+              Binary_operator_equal_to,
+              lookup_symbol)
           in
           (* If we're at the top of the program, we're finished.  Otherwise, start
              a search for the first variable. *)
@@ -464,9 +474,8 @@ struct
           let%bind (symbol1, _) = recurse [x'] acl1 relstack in
           let%bind (symbol2, _) = recurse [x''] acl1 relstack in
           let lookup_symbol = Symbol(lookup_var, relstack) in
-          let%bind () = record_formula @@
-            Formula(lookup_symbol,
-                    Formula_expression_binop(symbol1, op, symbol2))
+          let%bind () = record_constraint @@
+            Constraint.Constraint_binop(lookup_symbol, symbol1, op, symbol2)
           in
           (* The "further" clause in the Binop rule says that, if the lookup
              stack is non-empty, we have to look that stuff up too.  That
@@ -501,8 +510,8 @@ struct
           let%bind (function_symbol, _) = recurse [xf] acl1 relstack' in
           (* Require this function be assigned to that variable. *)
           let fv = Ident_map.find x env.le_function_parameter_mapping in
-          let%bind () = record_formula @@
-            Formula(function_symbol, Formula_expression_value(Value_function fv))
+          let%bind () = record_constraint @@
+            Constraint.Constraint_value(function_symbol, Constraint.Function fv)
           in
           (* Proceed to look up the argument in the calling context. *)
           recurse (x' :: lookup_stack') acl1 relstack'
@@ -527,8 +536,8 @@ struct
           in
           (* Require this function be assigned to that variable. *)
           let fv = Ident_map.find x'' env.le_function_parameter_mapping in
-          let%bind () = record_formula @@
-            Formula(function_symbol, Formula_expression_value(Value_function fv))
+          let%bind () = record_constraint @@
+            Constraint.Constraint_value(function_symbol, Constraint.Function fv)
           in
           (* Proceed to look up the variable in the context of the function's
              definition. *)
@@ -552,8 +561,8 @@ struct
           in
           (* Require this function be assigned to that variable. *)
           let fv = Ident_map.find x' env.le_function_return_mapping in
-          let%bind () = record_formula @@
-            Formula(function_symbol, Formula_expression_value(Value_function fv))
+          let%bind () = record_constraint @@
+            Constraint.Constraint_value(function_symbol, Constraint.Function fv)
           in
           (* Proceed to look up the value returned by the function. *)
           let%orzero Some relstack' = Relative_stack.push relstack xr in
@@ -581,8 +590,8 @@ struct
           in
           (* Require that it has the same value as the wiring node. *)
           let%orzero Abs_value_bool b = av in
-          let%bind () = record_formula @@
-            Formula(subject_symbol, Formula_expression_value(Value_bool b))
+          let%bind () = record_constraint @@
+            Constraint.Constraint_value(subject_symbol, Constraint.Bool b)
           in
           (* Proceed by moving through the wiring node. *)
           recurse lookup_stack acl1 relstack
@@ -604,8 +613,8 @@ struct
             recurse [x1] (Unannotated_clause c) relstack
           in
           (* Require that its value matches this conditional branch. *)
-          let%bind () = record_formula @@
-            Formula(subject_symbol, Formula_expression_value(Value_bool true))
+          let%bind () = record_constraint @@
+            Constraint.Constraint_value(subject_symbol, Constraint.Bool true)
           in
           (* Proceed to look up the value returned by this branch. *)
           recurse (x' :: lookup_stack') acl1 relstack
@@ -627,8 +636,8 @@ struct
             recurse [x1] (Unannotated_clause c) relstack
           in
           (* Require that its value matches this conditional branch. *)
-          let%bind () = record_formula @@
-            Formula(subject_symbol, Formula_expression_value(Value_bool false))
+          let%bind () = record_constraint @@
+            Constraint.Constraint_value(subject_symbol, Constraint.Bool false)
           in
           (* Proceed to look up the value returned by this branch. *)
           recurse (x' :: lookup_stack') acl1 relstack
@@ -651,9 +660,8 @@ struct
           (* Now record the constraint that the lookup variable must be the
              projection of the label from that record. *)
           let lookup_symbol = Symbol(lookup_var, relstack) in
-          let%bind () = record_formula @@
-            Formula(lookup_symbol,
-                    Formula_expression_projection(record_symbol, lbl))
+          let%bind () = record_constraint @@
+            Constraint_projection(lookup_symbol, record_symbol, lbl)
           in
           (* We should have a "further" clause similar to the Binop rule: if the
              lookup stack is non-empty, we have to look up all that stuff to
@@ -718,17 +726,17 @@ struct
       results
       |> Enum.filter_map
         (fun evaluation_result ->
-           match Solver.solve evaluation_result.M.er_formulae with
+           match Solver.solve evaluation_result.M.er_solver with
            | Some f ->
              begin
                lazy_logger `trace (fun () ->
                    Printf.sprintf
                      "Discovered answer of stack %s and formulae:\n%s"
                      (Relative_stack.show_concrete_stack evaluation_result.M.er_value)
-                     (Formulae.show evaluation_result.M.er_formulae)
+                     (Solver.show evaluation_result.M.er_solver)
                  )
              end;
-             Some {er_formulae = evaluation_result.M.er_formulae;
+             Some {er_solver = evaluation_result.M.er_solver;
                    er_stack = evaluation_result.M.er_value;
                    er_solution = f
                   }
@@ -738,7 +746,7 @@ struct
                    Printf.sprintf
                      "Dismissed answer of stack %s with unsolvable formulae:\n%s"
                      (Relative_stack.show_concrete_stack evaluation_result.M.er_value)
-                     (Formulae.show evaluation_result.M.er_formulae)
+                     (Solver.show evaluation_result.M.er_solver)
                  )
              end;
              None

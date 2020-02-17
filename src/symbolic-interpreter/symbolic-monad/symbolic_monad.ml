@@ -22,7 +22,6 @@ open Odefa_ast;;
 open Ast;;
 open Ast_pp;;
 open Interpreter_types;;
-open Sat_types;;
 
 let lazy_logger =
   Logger_utils.make_lazy_logger "Symbolic_monad"
@@ -105,14 +104,14 @@ module type S = sig
   val cache : 'a Spec.Cache_key.t -> 'a m -> 'a m;;
   val record_decision :
     Relative_stack.t -> Ident.t -> clause -> Ident.t -> unit m;;
-  val record_formula : Formula.t -> unit m;;
-  val check_formulae : 'a m -> 'a m;;
+  val record_constraint : Constraint.t -> unit m;;
+  val check_constraints : 'a m -> 'a m;;
 
   type 'a evaluation;;
 
   type 'a evaluation_result =
     { er_value : 'a;
-      er_formulae : Formulae.t;
+      er_solver : Solver.t;
       er_evaluation_steps : int;
       er_result_steps : int;
     };;
@@ -144,7 +143,7 @@ struct
   let _ = show_decision_map;;
 
   type log = {
-    log_formulae : Formulae.t;
+    log_solver : Solver.t;
     log_decisions : decision_map;
     log_steps : int;
   } [@@deriving show];;
@@ -188,7 +187,7 @@ struct
   (* **** Log utilities **** *)
 
   let empty_log = {
-    log_formulae = Formulae.empty;
+    log_solver = Solver.empty;
     log_decisions = Relative_stack.Map.empty;
     log_steps = 0;
   };;
@@ -198,28 +197,28 @@ struct
 
   let merge_logs (log1 : log) (log2 : log) : log option =
     let open Option.Monad in
-    let%bind merged_formulae =
+    let%bind merged_solver =
       try
-        Some(Formulae.union log1.log_formulae log2.log_formulae)
+        Some(Solver.union log1.log_solver log2.log_solver)
       with
-      | Formulae.SymbolTypeContradiction(_,symbol,types) ->
+      | Solver.TypeContradiction(symbol,t1,t2) ->
         (lazy_logger `trace @@ fun () ->
          Printf.sprintf
-           "Immediate contradiction at symbol %s with types %s while merging two formula sets.\nSet 1:\n%s\nSet 2:\n%s\n"
+           "Immediate contradiction at symbol %s with types %s and %s while merging two formula sets.\nSet 1:\n%s\nSet 2:\n%s\n"
            (show_symbol symbol)
-           (Jhupllib.Pp_utils.pp_to_string (Jhupllib.Pp_utils.pp_list Formulae.pp_symbol_type) types)
-           (Formulae.show_brief log1.log_formulae)
-           (Formulae.show_brief log2.log_formulae)
+           (Constraint.show_symbol_type t1) (Constraint.show_symbol_type t2)
+           (Solver.show log1.log_solver)
+           (Solver.show log2.log_solver)
         );
         None
-      | Formulae.SymbolValueContradiction(_,symbol,v1,v2) ->
+      | Solver.ValueContradiction(symbol,v1,v2) ->
         (lazy_logger `trace @@ fun () ->
          Printf.sprintf
            "Immediate contradiction at symbol %s with values %s and %s while merging two formula sets.\nSet 1:\n%s\nSet 2:\n%s\n"
            (show_symbol symbol)
-           (show_value v1) (show_value v2)
-           (Formulae.show_brief log1.log_formulae)
-           (Formulae.show_brief log2.log_formulae)
+           (Constraint.show_value v1) (Constraint.show_value v2)
+           (Solver.show log1.log_solver)
+           (Solver.show log2.log_solver)
         );
         None
     in
@@ -254,7 +253,7 @@ struct
         end
     in
     let new_log =
-      { log_formulae = merged_formulae;
+      { log_solver = merged_solver;
         log_decisions = merged_decisions;
         log_steps = log1.log_steps + log2.log_steps;
       }
@@ -389,43 +388,43 @@ struct
       (s : Relative_stack.t) (x : Ident.t) (c : clause) (x' : Ident.t)
     : unit m =
     _record_log @@
-    { log_formulae = Formulae.empty;
+    { log_solver = Solver.empty;
       log_decisions = Relative_stack.Map.singleton s (x,c,x');
       log_steps = 0;
     }
   ;;
 
-  let record_formula (formula : Formula.t) : unit m =
+  let record_constraint (c : Constraint.t) : unit m =
     _record_log @@
-    { log_formulae = Formulae.singleton formula;
+    { log_solver = Solver.singleton c;
       log_decisions = Relative_stack.Map.empty;
       log_steps = 0;
     }
   ;;
 
-  let rec check_formulae : 'a. 'a m -> 'a m =
+  let rec check_constraints : 'a. 'a m -> 'a m =
     fun x ->
       let check_one_world : 'a. 'a blockable -> 'a blockable option =
         fun blockable ->
           match blockable with
           | Unblocked(Completed(_,log)) ->
-            if Solver.solvable log.log_formulae then
+            if Solver.solvable log.log_solver then
               Some(blockable)
             else begin
               (lazy_logger `trace @@ fun () ->
                Printf.sprintf
                  "SAT contradiction at formulae check in:\n%s\n"
-                 (Formulae.show_brief log.log_formulae)
+                 (Solver.show log.log_solver)
               );
               None
             end
           | Unblocked(Suspended(m,log)) ->
-            Some(Unblocked(Suspended(check_formulae m, log)))
+            Some(Unblocked(Suspended(check_constraints m, log)))
           | Blocked(blocked) ->
             Some(Blocked(
                 { blocked with
                   blocked_computation =
-                    check_formulae blocked.blocked_computation
+                    check_constraints blocked.blocked_computation
                 }))
       in
       let M(worlds_fn) = x in
@@ -441,7 +440,7 @@ struct
 
   type 'out evaluation_result =
     { er_value : 'out;
-      er_formulae : Formulae.t;
+      er_solver : Solver.t;
       er_evaluation_steps : int;
       er_result_steps : int;
     };;
@@ -861,7 +860,7 @@ struct
                       "  Cache size: %d\n"
                      )
                      (show_value value)
-                     (Formulae.show log.log_formulae)
+                     (Solver.show log.log_solver)
                      (Relative_stack.Map.show
                         pp_decision
                         log.log_decisions)
@@ -869,7 +868,7 @@ struct
                      (Destination_map.cardinal final_ev.ev_destinations)
                  );
                { er_value = value;
-                 er_formulae = log.log_formulae;
+                 er_solver = log.log_solver;
                  er_evaluation_steps = final_ev.ev_evaluation_steps;
                  er_result_steps = log.log_steps + 1;
                  (* The +1 here is to ensure that the number of steps reported is

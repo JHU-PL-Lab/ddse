@@ -19,7 +19,6 @@ open Batteries;;
 open Odefa_ast;;
 
 open Ast;;
-open Sat_types;;
 
 (** The information pertinent to a single element of work in a symbolic monad
     computation. *)
@@ -111,14 +110,15 @@ module type S = sig
   val record_decision :
     Relative_stack.t -> Ident.t -> clause -> Ident.t -> unit m;;
 
-  (** Stores a formula in this environment's constraint set. *)
-  val record_formula : Formula.t -> unit m;;
+  (** Stores a constraint in this environment's constraint set. *)
+  val record_constraint : Constraint.t -> unit m;;
 
-  (** Checks that a monadic value's formulae are solvable.  For each
+  (** Checks that a monadic value's constraints are solvable.  For each
       non-deterministic path in the provided monadic value, a solution is
-      attempted for the formulae.  Any paths with unsolvable formulae are zeroed
-      out; the remaining paths exist in the returned monadic value (if any). *)
-  val check_formulae : 'a m -> 'a m;;
+      attempted for the constraints.  Any paths with unsolvable constraints are
+      zeroed out; the remaining paths exist in the returned monadic value (if
+      any). *)
+  val check_constraints : 'a m -> 'a m;;
 
   (* **** Evaluation interface **** *)
 
@@ -131,7 +131,7 @@ module type S = sig
   (** A type describing a single evaluation result. *)
   type 'a evaluation_result =
     { er_value : 'a;
-      er_formulae : Formulae.t;
+      er_solver : Solver.t;
       er_evaluation_steps : int;
       er_result_steps : int;
     };;
