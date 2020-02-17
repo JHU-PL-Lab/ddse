@@ -46,6 +46,18 @@ let rec _deductive_closure (cset : Constraint.Set.t) : Constraint.Set.t =
       let open Nondeterminism.Nondeterminism_monad in
       Enum.concat @@ List.enum @@ List.map enum @@
       [
+        (* x = v  ==>  x : typeof(v) *)
+        begin
+          let%orzero Constraint_value(x,v) = c in
+          let t =
+            match v with
+            | Constraint.Int _ -> Constraint.IntSymbol
+            | Constraint.Bool _ -> Constraint.BoolSymbol
+            | Constraint.Function f -> Constraint.FunctionSymbol f
+            | Constraint.Record _ -> Constraint.RecordSymbol
+          in
+          return @@ Constraint_type(x,t)
+        end;
         (* x1 = x2  ==>  x2 = x1 *)
         begin
           let%orzero Constraint_alias(x1,x2) = c in
