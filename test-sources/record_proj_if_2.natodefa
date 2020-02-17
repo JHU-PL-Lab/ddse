@@ -1,0 +1,9 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [ 1 ] !
+
+let x = input in
+let r = {head = 1, tail = 2} in
+if x == 1 then
+  let target = r.head in 1
+else
+  let target = r.tail in 1
