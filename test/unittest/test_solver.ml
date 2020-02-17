@@ -76,4 +76,27 @@ F.assert_solutions
   ]
 ;;
 
+_add_test "record projection" @@ fun _ ->
+F.assert_solutions
+  [ F.set_int F.x 5;
+    F.set_rec F.r [(F.a, F.x)];
+    F.set_proj F.y F.r F.a;
+  ]
+  [ (F.y, Some(Value_int 5));
+  ]
+;;
+
+_add_test "multi-label record projection" @@ fun _ ->
+F.assert_solutions
+  [ F.set_int F.x 5;
+    F.set_bool F.y true;
+    F.set_rec F.r [(F.a, F.x); (F.b, F.y)];
+    F.set_proj F.z F.r F.a;
+    F.set_proj F.w F.r F.b;
+  ]
+  [ (F.z, Some(Value_int 5));
+    (F.w, Some(Value_bool true));
+  ]
+;;
+
 let tests = "solver tests" >::: List.rev !_tests_acc;;

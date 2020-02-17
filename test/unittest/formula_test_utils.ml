@@ -25,14 +25,22 @@ let symbol_with_stack x s =
         )
 ;;
 
+let a = Ident "a";;
+let b = Ident "b";;
+let c = Ident "c";;
+let r = empty_stack_symbol "r";;
 let x = empty_stack_symbol "x";;
 let y = empty_stack_symbol "y";;
 let z = empty_stack_symbol "z";;
+let w = empty_stack_symbol "w";;
 let xa = symbol_with_stack "x" ["a"];;
 
 let alias s1 s2 = Constraint.Constraint_alias(s1, s2);;
 let set_int s n = Constraint.Constraint_value(s, Constraint.Int n);;
 let set_bool s n = Constraint.Constraint_value(s, Constraint.Bool n);;
+let set_rec s m = Constraint.Constraint_value(
+    s, Constraint.Record(Ident_map.of_enum @@ List.enum m));;
+let set_proj s s' l = Constraint.Constraint_projection(s, s', l);;
 
 let string_of_constraint_list constraint_list =
   String.join "\n" @@ List.map Constraint.show constraint_list
