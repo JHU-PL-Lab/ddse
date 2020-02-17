@@ -174,6 +174,11 @@ let rec rec_transform (e1 : On_ast.expr) : On_ast.expr m =
     let%bind transformed_expr2 = rec_transform thene in
     let%bind transformed_expr3 = rec_transform elsee in
     return @@ On_ast.If (transformed_expr1, transformed_expr2, transformed_expr3)
+  (* TODO RECORD *)
+  | Record _ -> return e1
+  | RecordProj (e, lab) -> 
+    let%bind transformed_expr = rec_transform e in
+    return @@ On_ast.RecordProj (transformed_expr, lab)
 ;;
 
 (* Function that removes duplicate naming so that we adhere to Odefa's naming
@@ -279,6 +284,9 @@ let rec replace_duplicate_naming
     let new_e2 = replace_duplicate_naming e2 old_name new_name in
     let new_e3 = replace_duplicate_naming e3 old_name new_name in
     If (new_e1, new_e2, new_e3)
+  | Record fields ->
+    Record (On_ast.Ident_map.map (fun e -> replace_duplicate_naming e old_name new_name) fields)
+  | RecordProj (e, lab) -> RecordProj (replace_duplicate_naming e old_name new_name, lab)
 ;;
 
 (* A function that finds all of the duplicate naming that happens for a given
@@ -429,6 +437,8 @@ let find_replace_duplicate_naming (e : On_ast.expr) : On_ast.expr m =
       let%bind (new_e2, e2_id_list) = recurse e2 e1_id_list in
       let%bind (new_e3, e3_id_list) = recurse e3 e2_id_list in
       return (On_ast.If(new_e1, new_e2, new_e3), e3_id_list)
+    (* TODO RECORD *)
+    | Record _ | RecordProj (_, _) -> return (e , ident_list)
   in
   let%bind x = recurse e [] in
   return @@ fst x
@@ -545,6 +555,41 @@ and
     let%bind bool_var = fresh_var "bool" in
     let new_clause = Ast.Clause(bool_var, Ast.Value_body(Ast.Value_bool(b))) in
     return ([new_clause], bool_var)
+  | Record (recexpr_map) ->
+    (* function for Enum.fold that generates the clause list and the
+       id -> var map for Odefa's record *)
+    let flatten_and_map acc ident_expr_tuple :
+      (Ast.clause list * Ast.var Ast.Ident_map.t) m =
+      let (clist, recmap) = acc in
+      let (id, e) = ident_expr_tuple in
+      let On_ast.Ident(id_string) = id in
+      let ast_id = Ast.Ident(id_string) in
+      let%bind (e_clist, e_var) = flatten_expr e in
+      let new_clist = clist @ e_clist in
+      let new_map = Ast.Ident_map.add ast_id e_var recmap in
+      return (new_clist, new_map)
+    in
+    let empty_acc = ([], Ast.Ident_map.empty) in
+    let%bind (clist, map) =
+      On_ast.Ident_map.enum recexpr_map
+      |> List.of_enum
+      |> list_fold_left_m flatten_and_map empty_acc
+    in
+    let%bind rec_var = fresh_var "record" in
+    let new_clause = Ast.Clause(rec_var,
+                                Ast.Value_body(Ast.Value_record(
+                                    Ast.Record_value (map)
+                                  ))) in
+    return (clist @ [new_clause], rec_var)
+  | RecordProj (e, lab) ->
+    let%bind (e_clist, e_var) = flatten_expr e in
+    let On_ast.Label(l_string) = lab in
+    let l_ident = Ast.Ident(l_string) in
+    let%bind new_var = fresh_var "record_proj" in
+    let new_clause = Ast.Clause(new_var,
+                                Ast.Projection_body(e_var, l_ident)
+                               ) in
+    return (e_clist @ [new_clause], new_var)
 ;;
 
 let translate

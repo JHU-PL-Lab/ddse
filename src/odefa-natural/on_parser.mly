@@ -1,16 +1,21 @@
 %{
 open On_ast;;
 module List = BatList;;
+exception On_Parse_error of string;;
 %}
 
 %token <string> IDENTIFIER
 %token <int> INT_LITERAL
 %token <bool> BOOL
 %token EOF
+%token OPEN_BRACE
+%token CLOSE_BRACE
+%token COMMA
 %token OPEN_PAREN
 %token CLOSE_PAREN
 %token EQUALS
 %token ARROW
+%token DOT
 %token FUNCTION
 %token WITH
 %token LET
@@ -42,6 +47,7 @@ module List = BatList;;
 %right AND                              /* And */
 %left EQUAL_EQUAL LESS LESS_EQUAL       /* = < <= */
 %left PLUS MINUS ASTERISK SLASH PERCENT /* + - * / % */
+%left DOT                               /* record access */
 
 %start <On_ast.expr> prog
 
@@ -85,6 +91,8 @@ expr:
       { Let($2, $4, $6) }
   | LET fun_sig IN expr %prec prec_fun
       { LetFun($2, $4)}
+  | expr DOT label
+      { RecordProj($1, $3) }
   | INPUT
       { Input }
 ;
@@ -119,13 +127,41 @@ simple_expr:
       { Bool $1 }
   | ident_usage
       { $1 }
+  | OPEN_BRACE record_body CLOSE_BRACE
+      { Record $2 }
+  | OPEN_BRACE CLOSE_BRACE
+      { Record (Ident_map.empty) }
   | OPEN_PAREN expr CLOSE_PAREN
       { $2 }
+;
+
+/* Records Expressions in Odefa-natural are delimited by commas and
+   their values are set using "=".
+   ex) {x = 1, y = 2, z = 3} */
+record_body:
+  | label EQUALS expr
+      { let (Label k) = $1 in
+        let key = Ident k in
+        Ident_map.singleton key $3 }
+  | label EQUALS expr COMMA record_body
+      { let (Label k) = $1 in
+        let key = Ident k in
+        let old_map = $5 in
+        let dup_check = Ident_map.mem key old_map in
+        if dup_check then raise (On_Parse_error "Duplicate label names in record!")
+        else
+        let new_map = Ident_map.add key $3 old_map in
+        new_map
+      }
 ;
 
 param_list:
   | ident_decl param_list { $1 :: $2 }
   | ident_decl { [$1] }
+;
+
+label:
+  | IDENTIFIER { Label $1 }
 ;
 
 ident_usage:

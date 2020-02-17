@@ -24,9 +24,13 @@ rule token = parse
 | comment              { incr_lineno lexbuf; token lexbuf }
 | whitespace           { token lexbuf }
 | newline              { incr_lineno lexbuf; token lexbuf }
+| "{"                  { OPEN_BRACE }
+| "}"                  { CLOSE_BRACE }
 | "("                  { OPEN_PAREN }
 | ")"                  { CLOSE_PAREN }
+| ","                  { COMMA }
 | "="                  { EQUALS }
+| "."                  { DOT }
 | "and"                { AND }
 | "or"                 { OR }
 | "not"                { NOT }

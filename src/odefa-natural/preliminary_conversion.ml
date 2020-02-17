@@ -104,6 +104,10 @@ let rec list_transform (e : expr) : (expr) =
     let new_e2 = list_transform e2 in
     let new_e3 = list_transform e3 in
     If (new_e1, new_e2, new_e3)
+  | Record fields ->
+    Record (Ident_map.map (fun e -> list_transform e) fields)
+  | RecordProj (e, lab) ->
+    RecordProj (list_transform e, lab)
 ;;
 
 (* Sub-routine that replaces all of the vars that are in the map. *)
