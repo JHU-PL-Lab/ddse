@@ -1,0 +1,13 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [ 1 ] !
+
+let x = input in
+let r0 = {last = true} in
+let r1 = {last = false, elem = 1, next = r0} in
+let r2 = {last = false, elem = 2, next = r1} in
+let tmp1 = r2.next in
+let result = tmp1.elem in
+if (result == x) then
+  let target = 1 in 1
+else
+  let target = 2 in 2

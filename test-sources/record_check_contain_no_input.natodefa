@@ -1,0 +1,20 @@
+# EXPECT-WELL-FORMED
+
+let r0 = {last = true} in
+let r1 = {last = false, elem = 1, next = r0} in
+let r2 = {last = false, elem = 2, next = r1} in
+let tmp1 = r2.next in
+let result = tmp1.elem in
+let rec contain t r =
+  if r.last then
+    false
+  else (
+    if r.elem == t then
+      true
+    else
+      contain t r.next
+  )
+  in
+let answer = contain t r2 in
+answer
+    
