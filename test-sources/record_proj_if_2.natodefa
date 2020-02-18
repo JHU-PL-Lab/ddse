@@ -1,5 +1,5 @@
 # EXPECT-WELL-FORMED
-# EXPECT-INPUT-SEQUENCES-REACH target [ 1 ] !
+# EXPECT-INPUT-SEQUENCES-REACH target [ 1, 2 ] !
 
 let x = input in
 let y = input in 
