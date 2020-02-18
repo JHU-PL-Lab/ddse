@@ -64,7 +64,7 @@ let input_sequence_from_solution
     | Var(x,Some(Freshening_stack(stop_stack))) -> x,stop_stack
   in
   let input_record = ref [] in
-  let read_from_formulae (Var(x,stack_opt)) =
+  let read_from_solver (Var(x,stack_opt)) =
     let stack =
       match stack_opt with
       | None ->
@@ -84,6 +84,8 @@ let input_sequence_from_solution
       | Some value ->
         value
     in
+    lazy_logger `trace
+      (fun () -> "Reconstructed input: " ^ (Ast_pp.show_value value));
     input_record := value :: !input_record;
     value
   in
@@ -97,7 +99,7 @@ let input_sequence_from_solution
     try
       let _ =
         Odefa_interpreter.Interpreter.eval
-          ~input_source:read_from_formulae
+          ~input_source:read_from_solver
           ~clause_callback:stop_at_stop_var
           e
       in
@@ -169,10 +171,8 @@ let rec take_steps
         (* We have results! *)
         lazy_logger `trace (fun () -> "Found input sequences!");
         let input_sequence_from_result result =
-          let formulae =
-            result.Symbolic_interpreter.Interpreter.er_solver
-          in
-          match Solver.solve formulae with
+          let solver = result.Symbolic_interpreter.Interpreter.er_solver in
+          match Solver.solve solver with
           | None ->
             raise @@ Jhupllib_utils.Invariant_failure
               "input_sequence_from_result (no solution)"
