@@ -10,4 +10,4 @@ let result = tmp1.elem in
 if (result == x) then
   let target = 1 in 1
 else
-  let target = 2 in 2
+  let not_target = 2 in 2
