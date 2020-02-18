@@ -219,7 +219,7 @@ let rec evaluate
                 let x'' = Ident_map.find l els in
                 let v = lookup env x'' in
                 Environment.add env x v;
-                evaluate env (Some x) t
+                recurse t
               with
               | Not_found ->
                 raise @@ Evaluation_failure(
