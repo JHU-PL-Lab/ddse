@@ -67,7 +67,8 @@ and var_replace_clause_body fn r =
 
 and var_replace_value fn v =
   match v with
-  | Value_record _ -> v
+  | Value_record(Record_value m) ->
+    Value_record(Record_value(Ident_map.map fn m))
   | Value_function(f) -> Value_function(var_replace_function_value fn f)
   | Value_int n -> Value_int n
   | Value_bool b -> Value_bool b
