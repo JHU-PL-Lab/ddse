@@ -15,6 +15,5 @@ let rec contain t r =
       contain t r.next
   )
   in
-let answer = contain t r2 in
+let answer = contain 0 r2 in
 answer
-    

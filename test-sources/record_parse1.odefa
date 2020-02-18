@@ -1,8 +1,0 @@
-# EXPECT-WELL-FORMED
-# EXPECT-INPUT-SEQUENCES-REACH target [ 1 ] !
-
-dummy = 0;
-x = input;
-one = 1;
-r = {foo = one};
-target = r.foo
