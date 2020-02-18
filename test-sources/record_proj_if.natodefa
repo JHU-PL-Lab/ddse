@@ -6,4 +6,4 @@ let r = {head = 1} in
 if r.head == x then
   let target = 1 in 1
 else
-  let target = 2 in 1
+  0

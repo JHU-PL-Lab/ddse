@@ -1,0 +1,19 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [ 1 ] !
+
+let x = input in
+let r0 = {last = true} in
+let r1 = {last = false, elem = 1, next = r0} in
+let rec list_at r i = 
+  if i == 0 then
+    r.elem
+  else (
+    let next_r = r.next in
+      list_at next_r (i-1)
+  )
+  in
+let r1_len = list_length r1 in
+if (r1_len == x) then
+  let target = 1 in 1
+else
+  0

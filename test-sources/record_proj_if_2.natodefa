@@ -2,8 +2,12 @@
 # EXPECT-INPUT-SEQUENCES-REACH target [ 1 ] !
 
 let x = input in
+let y = input in 
 let r = {head = 1, tail = 2} in
-if x == 1 then
-  let target = r.head in 1
+if x == r.head then
+  if y == r.tail then
+    let target = 1 in 1
+  else
+    0
 else
-  let target = r.tail in 1
+  0
