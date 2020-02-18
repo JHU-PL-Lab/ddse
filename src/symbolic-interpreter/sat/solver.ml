@@ -1,5 +1,4 @@
 open Batteries;;
-open Jhupllib;;
 
 open Odefa_ast;;
 
@@ -8,19 +7,60 @@ open Constraint;;
 open Interpreter_types;;
 open Symbol_cache;;
 
-exception TypeContradiction of
-    symbol * Constraint.symbol_type * Constraint.symbol_type;;
+type contradiction =
+  | TypeContradiction of
+      symbol * Constraint.symbol_type * Constraint.symbol_type
+  | ValueContradiction of symbol * value * value
+  | ProjectionContradiction of symbol * symbol * ident
+;;
+exception Contradiction of contradiction;;
 
-exception ValueContradiction of symbol * value * value;;
+module Symbol_to_symbol_multimap = Jhupllib.Multimap.Make(Symbol)(Symbol);;
+
+module Symbol_and_ident =
+struct;;
+  type t = symbol * ident [@@deriving ord];;
+end;;
+
+module Symbol_to_symbol_and_ident_multimap =
+  Jhupllib.Multimap.Make(Symbol)(Symbol_and_ident)
+;;
 
 type t =
-  { solver_constraints : Constraint.Set.t;
+  { (** The set of all constraints in the solver. *)
+    constraints : Constraint.Set.t;
+
+    (** An index of all alias constraints for a particular symbol.  As a given
+        symbol may be aliased to many other symbols, this is a multimap. *)
+    alias_constraints_by_symbol : Symbol_to_symbol_multimap.t;
+
+    (** An index of all value constraints by symbol.  As values are unique and
+        no symbol may be constrained to multiple different values, this is just
+        a normal dictionary. *)
+    value_constraints_by_symbol : value Symbol_map.t;
+
+    (** An index of all record projection constraints by the record symbol.
+        As a given record symbol may be projected many times (and the results
+        assigned to many symbols), this is a multimap. *)
+    projection_constraints_by_record_symbol : Symbol_to_symbol_and_ident_multimap.t;
+
+    (** An index of all symbol type constraints.  Because each symbol must have
+        exactly one type, this is a normal dictionary. *)
+    type_constraints_by_symbol : symbol_type Symbol_map.t;
   }
 ;;
 
 type solution = symbol -> Ast.value option;;
 
-let empty = { solver_constraints = Constraint.Set.empty };;
+let empty =
+  { constraints = Constraint.Set.empty;
+    alias_constraints_by_symbol = Symbol_to_symbol_multimap.empty;
+    value_constraints_by_symbol = Symbol_map.empty;
+    projection_constraints_by_record_symbol =
+      Symbol_to_symbol_and_ident_multimap.empty;
+    type_constraints_by_symbol = Symbol_map.empty;
+  }
+;;
 
 let _binop_types (op : binary_operator)
   : symbol_type * symbol_type * symbol_type =
@@ -38,140 +78,179 @@ let _binop_types (op : binary_operator)
   | Binary_operator_xor -> (BoolSymbol, BoolSymbol, BoolSymbol)
 ;;
 
-(* TODO: this approach is super-naive and very slow.  Replace this with a
-   worklist algorithm using indices on the constraints. *)
-let rec _deductive_closure (cset : Constraint.Set.t) : Constraint.Set.t =
-  let closure_step (cset : Constraint.Set.t) : Constraint.Set.t =
-    let apply_rules (c : Constraint.t) : Constraint.t Enum.t =
-      let open Nondeterminism.Nondeterminism_monad in
-      Enum.concat @@ List.enum @@ List.map enum @@
-      [
-        (* x = v  ==>  x : typeof(v) *)
-        begin
-          let%orzero Constraint_value(x,v) = c in
-          let t =
-            match v with
-            | Constraint.Int _ -> Constraint.IntSymbol
-            | Constraint.Bool _ -> Constraint.BoolSymbol
-            | Constraint.Function f -> Constraint.FunctionSymbol f
-            | Constraint.Record _ -> Constraint.RecordSymbol
-          in
-          return @@ Constraint_type(x,t)
-        end;
-        (* x1 = x2  ==>  x2 = x1 *)
-        begin
-          let%orzero Constraint_alias(x1,x2) = c in
-          return @@ Constraint_alias(x2,x1)
-        end;
-        (* x1 = v  and  x1 = x2  ==>  x2 = v *)
-        begin
-          let%orzero Constraint_value(x1,v) = c in
-          let%bind c' = pick_enum @@ Constraint.Set.enum cset in
-          let%orzero Constraint_alias(x1',x2) = c' in
-          [%guard equal_symbol x1 x1'];
-          return @@ Constraint_value(x2,v)
-        end;
-        (* x0 = { l1=x1,...,ln=xn }  and  x' = x0.lk  ==>  x' = xk *)
-        begin
-          let%orzero Constraint_value(x0,Constraint.Record(m)) = c in
-          let%bind c' = pick_enum @@ Constraint.Set.enum cset in
-          let%orzero Constraint_projection(x',x0',lbl) = c' in
-          [%guard equal_symbol x0 x0'];
-          let%orzero (Some xk) = Ident_map.Exceptionless.find lbl m in
-          return @@ Constraint_alias(xk,x')
-        end;
-        (* x1 = x2  and  x1 : t  ==>  x2 : t *)
-        begin
-          let%orzero Constraint_alias(x1,x2) = c in
-          let%bind c' = pick_enum @@ Constraint.Set.enum cset in
-          let%orzero Constraint_type(x1',t) = c' in
-          [%guard equal_symbol x1 x1'];
-          return @@ Constraint_type(x2,t)
-        end;
-        (* x1 = x2 op x3  ==>  x1 : t1  and  x2 : t2  and x3 : t3 *)
-        begin
-          let%orzero Constraint_binop(x1,x2,op,x3) = c in
-          let (in1,in2,out) = _binop_types op in
-          pick_enum @@ List.enum
-            [ Constraint_type(x1, out);
-              Constraint_type(x2, in1);
-              Constraint_type(x3, in2);
-            ]
-        end;
-      ]
-    in
-    let generated : Constraint.Set.t =
-      Constraint.Set.enum cset
-      |> Enum.map apply_rules
-      |> Enum.concat
-      |> Constraint.Set.of_enum
-    in
-    Constraint.Set.union cset generated
-  in
-  let cset' = closure_step cset in
-  (* print_endline @@
-     Format.sprintf "Deductive closure step:\n\n%s\n\n==>\n\n%s\n\n"
-     (Constraint.Set.show cset) (Constraint.Set.show cset'); *)
-  if Constraint.Set.equal cset cset' then
-    cset'
-  else
-    _deductive_closure cset'
-;;
-
-let _check_consistency (cset : Constraint.Set.t) : Constraint.Set.t =
-  cset
-  |> Constraint.Set.iter
-    (function
-      | Constraint_value(x1,v1) ->
-        cset
-        |> Constraint.Set.iter
-          (function
-            | Constraint_value(x2,v2) ->
-              if equal_symbol x1 x2 && not (Constraint.equal_value v1 v2) then
-                raise @@ ValueContradiction(x1, v1, v2)
-            | _ -> ()
-          );
-      | _ -> ()
-    );
-  cset
-  |> Constraint.Set.iter
-    (function
-      | Constraint_type(x1,t1) ->
-        cset
-        |> Constraint.Set.iter
-          (function
-            | Constraint_type(x2,t2) ->
-              if equal_symbol x1 x2 &&
-                 not (Constraint.equal_symbol_type t1 t2) then
-                raise @@ TypeContradiction(x1, t1, t2)
-            | _ -> ()
-          );
-      | _ -> ()
-    );
-  cset
-;;
-
 let _get_type_of_symbol (symbol : symbol) (solver : t) : symbol_type option =
-  solver.solver_constraints
-  |> Constraint.Set.enum
-  |> Enum.filter_map
-    (function
-      | Constraint_type(x,t) when equal_symbol symbol x -> Some t
-      | _ -> None)
-  |> Enum.get
+  Symbol_map.Exceptionless.find symbol solver.type_constraints_by_symbol
+;;
+
+let rec _add_constraints_and_close
+    (constraints : Constraint.Set.t) (solver : t)
+  : t =
+  if Constraint.Set.is_empty constraints then solver else
+    let (c, constraints') = Constraint.Set.pop constraints in
+    if Constraint.Set.mem c solver.constraints then
+      _add_constraints_and_close constraints' solver
+    else
+      let new_solver : t =
+        match c with
+        | Constraint_value(x,v) ->
+          { solver with
+            constraints = Constraint.Set.add c solver.constraints;
+            value_constraints_by_symbol =
+              begin
+                begin
+                  match Symbol_map.Exceptionless.find x
+                          solver.value_constraints_by_symbol with
+                  | None -> ();
+                  | Some v' ->
+                    if not (equal_value v v') then
+                      raise @@ Contradiction(ValueContradiction(x,v,v'))
+                end;
+                Symbol_map.add x v solver.value_constraints_by_symbol
+              end;
+          }
+        | Constraint_alias(x1,x2) ->
+          { solver with
+            constraints = Constraint.Set.add c solver.constraints;
+            alias_constraints_by_symbol =
+              Symbol_to_symbol_multimap.add x1 x2
+                solver.alias_constraints_by_symbol
+          }
+        | Constraint_binop _ ->
+          { solver with
+            constraints = Constraint.Set.add c solver.constraints;
+          }
+        | Constraint_projection(x1,x2,lbl) ->
+          { solver with
+            constraints = Constraint.Set.add c solver.constraints;
+            projection_constraints_by_record_symbol =
+              Symbol_to_symbol_and_ident_multimap.add x2 (x1,lbl)
+                solver.projection_constraints_by_record_symbol
+          }
+        | Constraint_type(x,t) ->
+          { solver with
+            constraints = Constraint.Set.add c solver.constraints;
+            type_constraints_by_symbol =
+              begin
+                begin
+                  match Symbol_map.Exceptionless.find x
+                          solver.type_constraints_by_symbol with
+                  | None -> ();
+                  | Some t' ->
+                    if not (equal_symbol_type t t') then
+                      raise @@ Contradiction(TypeContradiction(x,t,t'))
+                end;
+                Symbol_map.add x t solver.type_constraints_by_symbol;
+              end;
+          }
+      in
+      let new_constraints : Constraint.Set.t =
+        match c with
+        | Constraint_value(x,v) ->
+          let transitivity_constraints =
+            Symbol_to_symbol_multimap.find x solver.alias_constraints_by_symbol
+            |> Enum.map (fun x' -> Constraint_value(x',v))
+          in
+          let projection_constraints =
+            match v with
+            | Record m ->
+              solver.projection_constraints_by_record_symbol
+              |> Symbol_to_symbol_and_ident_multimap.find x
+              |> Enum.map
+                (fun (x',lbl) ->
+                   match Ident_map.Exceptionless.find lbl m with
+                   | None ->
+                     (* This means that we have two constraints.  One is a
+                        record value assignment and the other is a projection
+                        from that record.  But the projection is for a label
+                        that the record doesn't have.  Contradiction! *)
+                     raise @@ Contradiction(ProjectionContradiction(x',x,lbl))
+                   | Some x'' ->
+                     Constraint_alias(x',x'')
+                )
+            | Int _ | Bool _ | Function _ ->
+              Enum.empty ()
+          in
+          let type_constraints =
+            let t =
+              match v with
+              | Int _ -> IntSymbol
+              | Bool _ -> BoolSymbol
+              | Record _ -> RecordSymbol
+              | Function f -> FunctionSymbol f
+            in
+            Enum.singleton (Constraint_type(x,t))
+          in
+          Constraint.Set.of_enum @@
+          Enum.append transitivity_constraints @@
+          Enum.append projection_constraints type_constraints
+        | Constraint_alias(x,x') ->
+          let symmetry_constraint =
+            Enum.singleton(Constraint_alias(x',x))
+          in
+          let value_constraints =
+            match Symbol_map.Exceptionless.find x
+                    solver.value_constraints_by_symbol with
+            | None -> Enum.empty ()
+            | Some v -> Enum.singleton(Constraint_value(x',v))
+          in
+          let type_constraints =
+            match Symbol_map.Exceptionless.find x
+                    solver.type_constraints_by_symbol with
+            | None -> Enum.empty ()
+            | Some t -> Enum.singleton(Constraint_type(x',t))
+          in
+          Constraint.Set.of_enum @@
+          Enum.append symmetry_constraint @@
+          Enum.append value_constraints type_constraints
+        | Constraint_binop(x,x',op,x'') ->
+          let (tLeft,tRight,tOut) = _binop_types op in
+          Constraint.Set.of_enum @@ List.enum @@
+          [Constraint_type(x,tOut);
+           Constraint_type(x',tLeft);
+           Constraint_type(x'',tRight);
+          ]
+        | Constraint_projection(x,x',lbl) ->
+          begin
+            match Symbol_map.Exceptionless.find x'
+                    solver.value_constraints_by_symbol with
+            | None -> Constraint.Set.empty
+            | Some(Int _ | Bool _ | Function _) -> Constraint.Set.empty
+            | Some(Record record_body) ->
+              match Ident_map.Exceptionless.find lbl record_body with
+              | None ->
+                (* This means that we have two constraints.  One is a
+                   record value assignment and the other is a projection
+                   from that record.  But the projection is for a label
+                   that the record doesn't have.  Contradiction! *)
+                raise @@ Contradiction(ProjectionContradiction(x,x',lbl))
+              | Some x'' ->
+                Constraint.Set.singleton @@ Constraint_alias(x,x'')
+          end
+        | Constraint_type(x,t) ->
+          Symbol_to_symbol_multimap.find x solver.alias_constraints_by_symbol
+          |> Enum.map (fun x' -> Constraint_type(x',t))
+          |> Constraint.Set.of_enum
+      in
+      _add_constraints_and_close
+        (Constraint.Set.union new_constraints constraints)
+        new_solver
 ;;
 
 let add c solver =
-  let cset = solver.solver_constraints in
-  let cset' = _check_consistency @@ _deductive_closure @@ Constraint.Set.add c cset in
-  { solver_constraints = cset' }
+  _add_constraints_and_close (Constraint.Set.singleton c) solver
 ;;
 
 let singleton c = add c empty;;
 
 let union s1 s2 =
-  let cset2 = s2.solver_constraints in
-  Constraint.Set.fold add cset2 s1
+  let (smaller, larger) =
+    if Constraint.Set.cardinal s1.constraints <
+       Constraint.Set.cardinal s2.constraints then
+      (s1,s2)
+    else
+      (s2,s1)
+  in
+  _add_constraints_and_close smaller.constraints larger
 ;;
 
 let z3_expr_of_symbol
@@ -260,7 +339,7 @@ let solve (solver : t) : solution option =
   let z3 = Z3.Solver.mk_solver ctx None in
   let symbol_cache = new_symbol_cache ctx in
   let z3constraints =
-    solver.solver_constraints
+    solver.constraints
     |> Constraint.Set.enum
     |> Enum.filter_map (z3_constraint_of_constraint ctx symbol_cache solver)
     |> List.of_enum
@@ -324,14 +403,14 @@ let solvable solver =
   Option.is_some @@ solve solver
 ;;
 
-let enum solver = Constraint.Set.enum solver.solver_constraints;;
+let enum solver = Constraint.Set.enum solver.constraints;;
 
 let of_enum constraints = Enum.fold (flip add) empty constraints;;
 
-let iter fn solver = Constraint.Set.iter fn solver.solver_constraints;;
+let iter fn solver = Constraint.Set.iter fn solver.constraints;;
 
 let pp formatter solver =
-  Constraint.Set.pp formatter solver.solver_constraints
+  Constraint.Set.pp formatter solver.constraints
 ;;
 
 let show solver = Jhupllib.Pp_utils.pp_to_string pp solver;;

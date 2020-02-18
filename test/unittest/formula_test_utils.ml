@@ -1,5 +1,5 @@
 (**
-   This module contains a number of utilty functions used to create formulae.
+   This module contains a number of utilty functions used to create solver.
 *)
 
 open Batteries;;
@@ -51,32 +51,31 @@ let indent str =
 ;;
 
 let assert_solvable constraint_list =
-  let formulae = Solver.of_enum @@ List.enum constraint_list in
-  if not @@ Solver.solvable formulae then
+  let solver = Solver.of_enum @@ List.enum constraint_list in
+  if not @@ Solver.solvable solver then
     assert_failure @@
     let msg = indent @@ string_of_constraint_list constraint_list in
-    Printf.sprintf "Should be able to solve formula set:\n%s" msg
+    Printf.sprintf "Should be able to solve constraints:\n%s" msg
 ;;
 
 let assert_unsolvable constraint_list =
   try
-  let formulae = Solver.of_enum @@ List.enum constraint_list in
-  if Solver.solvable formulae then
+  let solver = Solver.of_enum @@ List.enum constraint_list in
+  if Solver.solvable solver then
     assert_failure @@
     let msg = indent @@ string_of_constraint_list constraint_list in
-    Printf.sprintf "Should NOT be able to solve formula set:\n%s" msg
+    Printf.sprintf "Should NOT be able to solve constraints:\n%s" msg
   with
-  | Solver.TypeContradiction _ -> ()
-  | Solver.ValueContradiction _ -> ()
+  | Solver.Contradiction _ -> ()
 ;;
 
 let assert_solutions constraint_list solutions =
-  let formulae = Solver.of_enum @@ List.enum constraint_list in
-  match Solver.solve formulae with
+  let solver = Solver.of_enum @@ List.enum constraint_list in
+  match Solver.solve solver with
   | None ->
     assert_failure @@
     let msg = indent @@ string_of_constraint_list constraint_list in
-    Printf.sprintf "Should NOT be able to solve formula set:\n%s" msg
+    Printf.sprintf "Should NOT be able to solve constraints:\n%s" msg
   | Some model ->
     solutions
     |> List.iter
@@ -86,7 +85,7 @@ let assert_solutions constraint_list solutions =
            assert_failure @@
            let set_msg = indent @@ string_of_constraint_list constraint_list in
            Printf.sprintf
-             "Expected %s but got %s for symbol %s in formula set:\n%s"
+             "Expected %s but got %s for symbol %s in constraints:\n%s"
              (Option.default "<none>" @@ Option.map show_value expected_answer)
              (Option.default "<none>" @@ Option.map show_value actual_answer)
              (show_symbol symbol)
@@ -99,8 +98,7 @@ let assert_symbol_type_error constraint_list =
     let _ = Solver.of_enum @@ List.enum constraint_list in
     assert_failure @@
     let msg = indent @@ string_of_constraint_list constraint_list in
-    Printf.sprintf "Should receive symbol type error from formula set:\n%s" msg
+    Printf.sprintf "Should receive symbol type error from constraints:\n%s" msg
   with
-  | Solver.TypeContradiction _ -> ()
-  | Solver.ValueContradiction _ -> ()
+  | Solver.Contradiction _ -> ()
 ;;

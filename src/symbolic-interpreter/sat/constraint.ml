@@ -44,7 +44,7 @@ let pp_value formatter v =
   | Function(Function_value(x,_)) ->
     Format.fprintf formatter "fun %a -> ..." pp_var x
   | Record(m) ->
-    Ident_map.pp pp_symbol formatter m
+    Pp_utils.pp_map pp_ident pp_symbol Ident_map.enum formatter m
 ;;
 
 let show_value = Pp_utils.pp_to_string pp_value;;

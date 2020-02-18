@@ -1,86 +1,89 @@
 open Batteries;;
-open Jhupllib;;
+(* open Jhupllib;; *)
 
+open Odefa_ast;;
 open Odefa_symbolic_interpreter;;
 
+open Ast;;
 open Interpreter_types;;
 
-module Test_cache_key = struct
-  type 'a t = KInt : int -> int t;;
-  type some_key = Some_key : 'a t -> some_key;;
-  let compare (type a b) (x : a t) (y : b t) : (a,b) Gmap.Order.t =
-    let KInt(x) = x in
-    let KInt(y) = y in
-    if x < y then Gmap.Order.Lt else
-    if x > y then Gmap.Order.Gt else
-      Gmap.Order.Eq
-  ;;
-  let pp (type a) formatter (x : a t) : unit =
-    let KInt(n) = x in
-    Format.pp_print_int formatter n
-  ;;
-  let show x = Jhupllib.Pp_utils.pp_to_string pp x;;
-end;;
-
-module Spec = struct
-  module Cache_key = Test_cache_key;;
-  module Work_collection = Symbolic_monad.QueueWorkCollection(Test_cache_key);;
-end;;
-
-module M = Symbolic_monad.Make(Spec);;
-
-open M;;
-
-let symb x = Symbol(Ident(x), Relative_stack.empty);;
-let set_int s n = Constraint.Constraint_value(symb s, Constraint.Int n);;
-let alias s s' = Constraint.Constraint_alias(symb s, symb s');;
-
-type 'a test_result =
-  { tr_value : 'a;
-    tr_solver : Solver.t;
-    tr_total_steps : int;
-    tr_evaluation_steps : int;
-    tr_result_steps : int;
-  }
-  (* NOTE: total steps (computed by test framework) and evaluation steps
-     (computed by monadic evaluation engine) should always match. *)
+(* open Ode_ast;;
+   open Ode_interpreter;;
+   open Ode_parser;; *)
+(*
+let e = Parser.parse_program
+    (BatIO.input_string @@
+     {program|
+         input___0 = input;
+         x = input___0;
+         bool___1 = true;
+         record___2 = {last=bool___1};
+         r0 = record___2;
+         int___3 = 1;
+         bool___4 = lse;
+         record___5 = {elem=int___3, last=bool___4, next=r0};
+         r1 = record___5;
+         int___6 = 2;
+         bool___7 = lse;
+         record___8 = {elem=int___6, last=bool___7, next=r1};
+         r2 = record___8;
+         record_proj___9 = r2.next;
+         tmp1 = record_proj___9;
+         record_proj___10 = tmp1.elem;
+         result = record_proj___10;
+         binop___11 = result == x;
+         nal = binop___11 ? (int___12 = 1; target = int___12; int___13 = 1) :
+                                  (int___14 = 2; not_target = int___14; int___15 = 2
+                                    );
+     |program}
+    )
 ;;
 
-let complete (x : 'a m) : 'a test_result Enum.t =
-  let rec loop evaluation steps_so_far : 'a test_result Enum.t =
-    let results, evaluation' = step evaluation in
-    let new_steps_so_far = steps_so_far + 1 in
-    let tagged_results =
-      results
-      |> Enum.map
-        (fun er ->
-           { tr_value = er.er_value;
-             tr_solver = er.er_solver;
-             tr_total_steps = new_steps_so_far;
-             tr_evaluation_steps = er.er_evaluation_steps;
-             tr_result_steps = er.er_result_steps;
-           }
-        )
-    in
-    Enum.append tagged_results @@
-    if is_complete evaluation' then Enum.empty () else
-      loop evaluation' new_steps_so_far
-  in
-  loop (start x) 0
+let x,env = Interpreter.eval ~input_source:(n _ -> Ast.Value_int 0) e;;
+
+print_endline @@ Ast_pp.show_var x;;
+print_endline @@ "";;
+print_endline @@ Interpreter.show_evaluation_environment env;; *)
+
+let empty_stack = Relative_stack.empty;;
+let empty_stack_symbol x = Symbol(Ident(x), empty_stack);;
+let a = Ident "a";;
+let b = Ident "b";;
+let c = Ident "c";;
+let r = empty_stack_symbol "r";;
+let x = empty_stack_symbol "x";;
+let y = empty_stack_symbol "y";;
+let z = empty_stack_symbol "z";;
+let w = empty_stack_symbol "w";;
+
+let alias s1 s2 = Constraint.Constraint_alias(s1, s2);;
+let set_int s n = Constraint.Constraint_value(s, Constraint.Int n);;
+let set_bool s n = Constraint.Constraint_value(s, Constraint.Bool n);;
+let set_rec s m = Constraint.Constraint_value(
+    s, Constraint.Record(Ident_map.of_enum @@ List.enum m));;
+let set_proj s s' l = Constraint.Constraint_projection(s, s', l);;
+
+let constraints =
+  [ set_int x 5;
+    set_bool y true;
+    set_rec r [(a, x); (b, y)];
+    set_proj z r a;
+    set_proj w r b;
+  ]
 ;;
 
-let computation =
-  check_constraints @@
-  let%bind () = record_constraint @@ set_int "x" 2 in
-  let%bind () = record_constraint @@ alias "x" "y" in
-  let%bind n = pick @@ List.enum [1;2;3] in
-  let%bind () = record_constraint @@ set_int "y" n in
-  return n
-in
-
-let results : int test_result Enum.t = complete computation in
-let actual : int list =
-  List.of_enum @@ Enum.map (fun tr -> tr.tr_value) results
-in
-print_endline
-  (Pp_utils.pp_to_string (Pp_utils.pp_list Format.pp_print_int) actual);
+constraints
+|> List.fold_left
+  (fun solver c ->
+     print_endline "## solver:";
+     print_endline @@ Solver.show solver;
+     print_endline "## constraint:";
+     print_endline @@ Constraint.show c;
+     let solver' = Solver.add c solver in
+     print_endline "## solver':";
+     print_endline @@ Solver.show solver';
+     print_endline "==================";
+     solver'
+  )
+  Solver.empty
+;;

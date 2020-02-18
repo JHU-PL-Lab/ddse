@@ -201,7 +201,7 @@ struct
       try
         Some(Solver.union log1.log_solver log2.log_solver)
       with
-      | Solver.TypeContradiction(symbol,t1,t2) ->
+      | Solver.Contradiction(Solver.TypeContradiction(symbol,t1,t2)) ->
         (lazy_logger `trace @@ fun () ->
          Printf.sprintf
            "Immediate contradiction at symbol %s with types %s and %s while merging two formula sets.\nSet 1:\n%s\nSet 2:\n%s\n"
@@ -211,12 +211,21 @@ struct
            (Solver.show log2.log_solver)
         );
         None
-      | Solver.ValueContradiction(symbol,v1,v2) ->
+      | Solver.Contradiction(Solver.ValueContradiction(symbol,v1,v2)) ->
         (lazy_logger `trace @@ fun () ->
          Printf.sprintf
            "Immediate contradiction at symbol %s with values %s and %s while merging two formula sets.\nSet 1:\n%s\nSet 2:\n%s\n"
            (show_symbol symbol)
            (Constraint.show_value v1) (Constraint.show_value v2)
+           (Solver.show log1.log_solver)
+           (Solver.show log2.log_solver)
+        );
+        None
+      | Solver.Contradiction(Solver.ProjectionContradiction(s1,s2,lbl)) ->
+        (lazy_logger `trace @@ fun () ->
+         Printf.sprintf
+           "Immediate contradiction at symbol %s by projection of label %s from symbol %s while merging two formula sets.\nSet 1:\n%s\nSet 2:\n%s\n"
+           (show_symbol s1) (show_symbol s2) (show_ident lbl)
            (Solver.show log1.log_solver)
            (Solver.show log2.log_solver)
         );

@@ -13,16 +13,24 @@ open Odefa_ast;;
 open Interpreter_types;;
 open Pp_utils;;
 
-(** An exception which is raised if a constraint is added to a solver which
-    causes a symbol to be assigned inconsistent types. *)
-exception TypeContradiction of
-    symbol * Constraint.symbol_type * Constraint.symbol_type;;
+(** A description of contradictions which may appear during the closure of a
+    constraint set.  Each constructor represents a different contradiction case:
 
-(** An exception which is raised if a constraint is added to a solver which
-    causes a symbol to be directly assigned contradictory values.  This is only
-    raised when the contradiction is immediate (and not e.g. when binary
-    operators eliminate the range of possible values for a symbol). *)
-exception ValueContradiction of symbol * Constraint.value * Constraint.value;;
+      * the assignment of dissonant types to a particular symbol
+      * the assignment of distinct values to a particular symbol
+      * the assignment to a symbol of a record projection using a label that the
+        subject does not contain
+*)
+type contradiction =
+  | TypeContradiction of
+      symbol * Constraint.symbol_type * Constraint.symbol_type
+  | ValueContradiction of symbol * Constraint.value * Constraint.value
+  | ProjectionContradiction of symbol * symbol * Ast.ident
+;;
+
+(** An exception which is raised if a contradiction appears in a constraint set
+    during closure. *)
+exception Contradiction of contradiction;;
 
 (** The type of solvers. *)
 type t;;
