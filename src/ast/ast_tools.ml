@@ -212,3 +212,41 @@ and map_function_vars (fn : Var.t -> Var.t) (f : function_value)
   let Function_value(x,e) = f in
   Function_value(fn x, map_expr_vars fn e)
 ;;
+
+(** Mostly-homomorphically operates on every subexpression of an expression.
+    Expressions are modified in a bottom-up fashion. *)
+let rec transform_exprs_in_expr (fn : expr -> expr) (e : expr) : expr =
+  let Expr(cls) = e in
+  fn @@ Expr(List.map (transform_exprs_in_clause fn) cls)
+
+and transform_exprs_in_clause (fn : expr -> expr) (c : clause) : clause =
+  let Clause(x,b) = c in Clause(x, transform_exprs_in_clause_body fn b)
+
+and transform_exprs_in_clause_body (fn : expr -> expr) (b : clause_body)
+  : clause_body =
+  match (b : clause_body) with
+  | Value_body v -> Value_body (transform_exprs_in_value fn v)
+  | Var_body _ -> b
+  | Input_body -> Input_body
+  | Appl_body (_, _) -> b
+  | Conditional_body (x, e1, e2) ->
+    Conditional_body (x,
+                      transform_exprs_in_expr fn e1,
+                      transform_exprs_in_expr fn e2)
+  | Match_body(x, p) ->
+    Match_body(x, p)
+  | Projection_body (_, _) -> b
+  | Binary_operation_body (_, _, _) -> b
+
+and transform_exprs_in_value (fn : expr -> expr) (v : value) : value =
+  match (v : value) with
+  | Value_record _ -> v
+  | Value_function f -> Value_function(transform_exprs_in_function fn f)
+  | Value_int _ -> v
+  | Value_bool _ -> v
+
+and transform_exprs_in_function (fn : expr -> expr) (fv : function_value)
+  : function_value =
+  let Function_value(x,e) = fv in
+  Function_value(x, transform_exprs_in_expr fn e)
+;;
