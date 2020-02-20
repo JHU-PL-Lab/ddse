@@ -1,0 +1,12 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [ 2 ] !
+
+let x = input in
+let rec id dummy r = 
+  r
+  in
+let new_x = id 0 x in
+if new_x == 2 then
+  let target = 1 in 1
+else
+  0

@@ -1,0 +1,24 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [4]
+
+let x = input in
+let do_sth = 10 in
+let id y =
+  let ignored = do_sth in
+  y
+in
+let id_a = (id (fun a -> a)) true
+in
+let id_b = (id (fun b -> b)) false
+in
+let id_x = 
+  let t3 = (id (fun c -> c)) in
+  t3 x
+in
+if id_x == x then
+  if 3 < x then
+    let target = 1 in 1
+  else
+    0
+else
+  0

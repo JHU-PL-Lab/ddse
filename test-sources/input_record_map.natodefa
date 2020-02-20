@@ -1,0 +1,21 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [ 2 ]
+
+let x = input in
+let r0 = {last = true} in
+let r1 = {last = false, elem = x, next = r0} in
+let r2 = {last = false, elem = 4, next = r1} in
+let rec record_map r f = 
+  if r.last then
+    r
+  else
+    let next_mapped = record_map (r.next) f in
+    {last = false, elem = f (r.elem), next = next_mapped}
+  in
+let add_one x = x + 1 in
+let new_r2 = record_map r2 add_one in
+let new_r1 = new_r2.next in
+if new_r1.elem == 3 then
+  let target = 1 in 1
+else
+  0
