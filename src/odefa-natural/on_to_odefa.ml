@@ -5,7 +5,7 @@ open Odefa_ast;;
 
 open Ast_tools;;
 open Preliminary_conversion;;
-open Simplification;;
+(* open Simplification;; *)
 open Translator_utils;;
 
 (** In this module we will translate from odefa-natural to odefa in the
@@ -845,5 +845,7 @@ let translate
     | Some ctx -> ctx
   in
   run context e_m
-  |> eliminate_aliases
+  (* NOTE: commenting this out for DDSE because it has a tendency to eliminate
+     unnecessary variables and we use those as targets *)
+  (* |> eliminate_aliases *)
 ;;
