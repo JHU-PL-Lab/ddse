@@ -1,0 +1,37 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [2, 0]
+
+let x = input in
+let y = input in
+
+# a = [1; 2]
+let a2 = {last = true} in
+let a1 = {last = false, elem = 2, next = a2} in
+let a =  {last = false, elem = 1, next = a1} in
+
+# b = [3; 4; 5]
+let b3 = {last = true} in
+let b2 = {last = false, elem = 5, next = b3} in
+let b1 = {last = false, elem = 4, next = b2} in
+let b =  {last = false, elem = 3, next = b1} in
+
+# c = [[3; 4; 5]]
+let c1 = {last = true} in
+let c =  {last = false, elem = b, next = c1} in
+
+# d = [a, c]
+let d2 = {last = true} in
+let d1 = {last = false, elem = c, next = d2} in
+let d =  {last = false, elem = a, next = d1} in
+
+let rec list_at r i = 
+  if i == 0 then
+    r.elem
+  else 
+    list_at (r.next) (i - 1)
+  in
+let r1_elem = list_at a 1 in
+if (r1_elem == x) then
+  let target = 1 in 1
+else
+  0
