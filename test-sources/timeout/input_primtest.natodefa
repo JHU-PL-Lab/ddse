@@ -1,0 +1,81 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [0] !
+# EXPECT-REQUIRED-INPUT-SEQUENCE-GENERATION-STEPS 20000
+
+
+let x = input in
+
+# Mathematical support.
+
+let square x = x * x in
+
+# modulo-power: a fast modular exponentiation routine.
+# modulo-power(base,exp,n) = base^exp [mod n]
+
+let odd n = 
+  ((n % 2) == 0) 
+in
+
+let rec modulo_power base exp n =
+  if (exp == 0) then 1
+  else
+  if (odd exp) then ((base * (modulo_power base (exp - 1) n)) % n)
+               else ((square (modulo_power base (exp/2) n)) % n)
+in
+
+# Primality tests.
+
+# is-trivial-composite?: divisibility tests with the first few primes.
+let is_trivial_composite n =
+  (n % 2 == 0) or
+  (n % 3 == 0) or
+  (n % 5 == 0) or
+  (n % 7 == 0) or
+  (n % 11 == 0) or
+  (n % 13 == 0) or
+  (n % 17 == 0) or
+  (n % 19 == 0) or
+  (n % 23 == 0)
+in
+
+# is-fermat-prime?:
+# Check, for many values of a:
+#  a^(n-1) = 1 [mod n] ?
+#   If yes, could be prime.
+#   If no, then composite.
+# Warning: Some Carmichael numbers (though rare) defeat this test.
+
+let ceiling n = n + 0 in
+# how to encode log?
+let log n = n in
+# what about random?
+let random n = n - 7 in
+let rec is_fermat_prime n iterations =
+  if iterations <= 0 then
+    true
+  else
+    (let byte_size = ceiling ((log n)/(log 2)) in
+    let a = random byte_size in
+    if ((modulo_power a (n - 1) n) == 1) then
+      is_fermat_prime n (iterations - 1)
+    else false
+    )
+in
+
+# Prime generation.
+
+# generate-fermat-prime(byte-size) yields a prime satisfying the Fermat test.
+let rec generate_fermat_prime byte_size iterations =
+  let n = random byte_size in
+  if (not (is_trivial_composite n) and (is_fermat_prime n iterations)) then
+  n
+  else
+  (generate_fermat_prime byte_size iterations)
+in
+# Example
+
+let iterations = 10 in
+let byte_size = 15 in
+
+let answer = generate_fermat_prime byte_size iterations in
+let target = 1 in 1
