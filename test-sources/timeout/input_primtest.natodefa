@@ -45,21 +45,24 @@ in
 #   If no, then composite.
 # Warning: Some Carmichael numbers (though rare) defeat this test.
 
-let ceiling n = n + 0 in
-# how to encode log?
-let log n = n in
-# what about random?
+let rec byte_size n =
+  if n <= 1 then
+    0
+  else
+    1 + (byte_size ((n+1) / 2))
+  in
+
+
 let random n = n - 7 in
 let rec is_fermat_prime n iterations =
   if iterations <= 0 then
     true
   else
-    (let byte_size = ceiling ((log n)/(log 2)) in
     let a = random byte_size in
     if ((modulo_power a (n - 1) n) == 1) then
       is_fermat_prime n (iterations - 1)
-    else false
-    )
+    else
+      false
 in
 
 # Prime generation.

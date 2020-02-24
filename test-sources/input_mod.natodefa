@@ -1,0 +1,9 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [8]
+
+let x = input in
+
+if (9 % x) == 1 then
+  let target = 1 in 1
+else
+  0
