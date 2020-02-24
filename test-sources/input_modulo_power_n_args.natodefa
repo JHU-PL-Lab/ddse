@@ -1,0 +1,19 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [4]
+
+let x = input in
+
+let rec modulo_power base exp n =
+  if (exp <= 0) then 
+    1
+  else if ((exp % 2) == 1) then 
+    (base * (modulo_power base (exp-1) n)) % n
+  else 
+    let t = modulo_power base (exp/2) n in
+      (t * t) % n
+  in
+if  
+(modulo_power 2 2 11) == x then
+  let target = 1 in 1
+else
+  0
