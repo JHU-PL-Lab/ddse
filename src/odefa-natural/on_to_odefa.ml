@@ -133,9 +133,6 @@ let rec_transform (e : On_ast.expr) : On_ast.expr m =
         list_fold_left_m
           (fun appl_dict -> fun base_fun ->
              let (original_fun_name, new_fun_name) = base_fun in
-             (* If we're annotating recursive call sites as acontextual, then
-                these call sites (which introduce each of the mutually recursive
-                functions to each other) definitely count. *)
              let sub_appl =
                List.fold_left
                  (fun acc fun_name -> On_ast.Appl(acc, Var(fun_name)))
@@ -420,16 +417,26 @@ let alphatize (e : On_ast.expr) : On_ast.expr m =
     | LetFun (funsig, expr) ->
       (* FIXME?: assuming that parameters in functions are not duplicated;
                  probably should verify that somewhere *)
+      (* Unpack signature *)
       let Funsig(name, params, body) = funsig in
+      (* Recurse on the second expression to ensure that it is internally
+         alphatized. *)
       let%bind (expr', seen_declared') = walk expr seen_declared in
+      (* Perform renamings on any names which we have already seen from the
+         outside. *)
       let%bind names', expr'', seen_declared'', _ =
         ensure_expr_unique_names [name] expr' seen_declared'
       in
       let%orzero [name'] = names' in
-      let%bind params', body', seen_declared''', _ =
-        ensure_expr_unique_names params body seen_declared''
+      (* Recurse on the body expression to ensure that it is internally
+         alphatized. *)
+      let%bind (body', seen_declared''') = walk body seen_declared'' in
+      (* Perform renamings on any names which we have already seen from the
+         outside. *)
+      let%bind params', body'', seen_declared'''', _ =
+        ensure_expr_unique_names params body' seen_declared'''
       in
-      return (LetFun(Funsig(name', params', body'), expr''), seen_declared''')
+      return (LetFun(Funsig(name', params', body''), expr''), seen_declared'''')
     | Plus (e1, e2) ->
       let%bind e1', seen_declared' = walk e1 seen_declared in
       let%bind e2', seen_declared'' = walk e2 seen_declared' in
