@@ -1,0 +1,53 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [0, 1, 2, 3, 4] !
+# EXPECT-REQUIRED-INPUT-SEQUENCE-GENERATION-STEPS 20000
+
+let x0 = input in
+let x1 = input in
+let x2 = input in
+let x3 = input in
+let x4 = input in
+
+let none = {last = true} in
+
+# a = [0; 1]
+let a1 = {last = false, elem = 1, next = none} in
+let a =  {last = false, elem = 0, next = a1} in
+
+# b = [2; 3; 4]
+let b2 = {last = false, elem = 4, next = none} in
+let b1 = {last = false, elem = 3, next = b2} in
+let b =  {last = false, elem = 2, next = b1} in
+
+let rec append l1 l2 = 
+  if l1.last then
+    l2
+  else
+    let next2 = append (l1.next) l2 in
+    {last = false, elem = l1.elem, next = next2}
+in
+
+let rec list_at r i = 
+  if i == 0 then
+    r.elem
+  else
+    list_at (r.next) (i - 1)
+in
+
+let ab = append a b in
+let e4 = list_at ab 0 in
+
+if ab.elem == x0
+  and ab.next.elem == x1
+  and ab.next.next.elem == x2
+  and ab.next.next.next.elem == x3
+  and ab.next.next.next.next.elem == x4
+# if    (list_at ab 0) == x0
+#  and (list_at ab 1) == x1
+#  and (list_at ab 2) == x2
+#  and (list_at ab 3) == x3
+#  and (list_at ab 4) == x4
+then
+  let target = 1 in 1
+else
+  0

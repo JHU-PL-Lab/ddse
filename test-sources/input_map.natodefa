@@ -1,0 +1,44 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [6, 10] !
+# EXPECT-REQUIRED-INPUT-SEQUENCE-GENERATION-STEPS 20000
+
+let x = input in 
+let y = input in
+let debug_trace = false in
+let id elm =
+  (let dum1 = debug_trace in
+  elm)
+in
+let rec my_map f l =
+  let dum2 = debug_trace in
+  let rec lp lst =
+    if lst.last then
+      lst
+    else
+      let next_mapped = lp (lst.next) in
+      {last = false, elem = (id f) (lst.elem), next = next_mapped}
+    in
+  lp l
+in
+
+let none = {last = true} in
+
+# lst1 = [3; 4; 5]
+let a2 =    {last = false, elem = 5, next = none} in
+let a1 =    {last = false, elem = 4, next = a2} in
+let lst1 =  {last = false, elem = 3, next = a1} in
+
+# lst2 = [7, 8, 9]
+let b2 =    {last = false, elem = 9, next = none} in
+let b1 =    {last = false, elem = 8, next = b2} in
+let lst2 =  {last = false, elem = 7, next = b1} in
+
+let ans1 = my_map (id (fun a -> a + 1)) lst1 in
+let ans2 = my_map (id (fun b -> b + 1)) lst2 in
+
+if ans1.next.next.elem == x 
+    and ans2.next.next.elem == y
+then
+  let target = 1 in 1
+else
+  0

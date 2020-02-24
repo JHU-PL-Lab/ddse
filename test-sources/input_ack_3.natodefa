@@ -1,0 +1,23 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [1, 1] [0, 2]
+
+let xi = input
+in let yi = input
+in let rec ack m n =
+  if m == 0
+  then 
+    n+1
+  else 
+    if n == 0
+    then
+      ack (m-1) 1
+    else
+      ack (m-1) (ack m (n-1)) 
+in 
+if 0 <= xi and 0 <= yi
+then
+  let r = ack xi yi in
+  if r == 3 then
+    let target = 0 in 1
+  else 0
+else 0

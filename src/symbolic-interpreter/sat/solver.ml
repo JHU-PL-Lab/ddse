@@ -305,7 +305,7 @@ let z3_constraint_of_constraint
     (symbol_cache : symbol_cache)
     (solver : t)
     (c : Constraint.t)
-  : Z3.Expr.expr option =
+  : (Z3.Expr.expr list) option =
   let open Option.Monad in
   let translate_symbol symbol =
     z3_expr_of_symbol ctx symbol_cache solver symbol
@@ -317,17 +317,25 @@ let z3_constraint_of_constraint
   | Constraint_value(x,v) ->
     let%bind z3x = translate_symbol x in
     let%bind z3v = translate_value v in
-    Some(Z3.Boolean.mk_eq ctx z3x z3v)
+    Some([Z3.Boolean.mk_eq ctx z3x z3v])
   | Constraint_alias(x1,x2) ->
     let%bind z3x1 = translate_symbol x1 in
     let%bind z3x2 = translate_symbol x2 in
-    Some(Z3.Boolean.mk_eq ctx z3x1 z3x2)
+    Some([Z3.Boolean.mk_eq ctx z3x1 z3x2])
   | Constraint_binop(x1,x2,op,x3) ->
     let%bind fn = z3_fn_of_operator ctx op in
     let%bind z3x1 = translate_symbol x1 in
     let%bind z3x2 = translate_symbol x2 in
     let%bind z3x3 = translate_symbol x3 in
-    Some(Z3.Boolean.mk_eq ctx z3x1 (fn z3x2 z3x3))
+    let binary_c = Z3.Boolean.mk_eq ctx z3x1 (fn z3x2 z3x3) in
+    ( match op with
+    | Binary_operator_divide
+    | Binary_operator_modulus -> (
+      let%bind z3zero = translate_value (Int(0)) in
+      let is_zero = Z3.Boolean.mk_eq ctx z3x3 z3zero in
+      let not_zero = Z3.Boolean.mk_not ctx is_zero in
+      Some([binary_c; not_zero]))
+    | _ -> Some ([binary_c]) )
   | Constraint_projection _ ->
     None
   | Constraint_type _ ->
@@ -343,6 +351,7 @@ let solve (solver : t) : solution option =
     |> Constraint.Set.enum
     |> Enum.filter_map (z3_constraint_of_constraint ctx symbol_cache solver)
     |> List.of_enum
+    |> List.concat
   in
   Z3.Solver.add z3 z3constraints;
   match Z3.Solver.check z3 [] with

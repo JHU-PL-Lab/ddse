@@ -1,0 +1,22 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [ 0 ]
+
+let x = input in
+let rec lp1 i x =
+    if (i == 0) then 
+      x 
+    else
+      let rec lp2 j f y =
+        if (j == 0) then
+          (lp1 (i - 1) y)
+        else 
+          (lp2 (j - 1) f (f y))
+      in
+        (lp2 2 (fun n -> (n + i)) x)
+in
+let r = lp1 2 0
+in
+if x == r then
+  let target = 1 in 1
+else
+  0

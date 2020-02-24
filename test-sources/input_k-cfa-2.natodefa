@@ -1,0 +1,15 @@
+# EXPECT-WELL-FORMED
+# # EXPECT-INPUT-SEQUENCES-REACH target [ 0 ]
+
+# let x = input in
+let r = 
+  (fun f1 -> (f1 true) (f1 false))
+  (fun x1 -> 
+    (fun f2 -> (f2 true) (f2 false))
+    (fun x2 -> 
+      (fun z -> z x1 x2)
+      (fun y1 y2 -> y1)
+    )
+  )
+in 
+  let target = 1 in 1

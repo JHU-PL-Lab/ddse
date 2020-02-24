@@ -1,0 +1,19 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [2] !
+
+let q = input in
+
+let h b =
+  let g z = z in
+  let f k =
+    if b then k 1 else k 2
+  in
+  let y = (f (fun x -> x)) in g y
+in
+let x1 = (h true) in
+let x2 = (h false) in
+
+if q == x2 then
+  let target = 1 in 1
+else
+  0
