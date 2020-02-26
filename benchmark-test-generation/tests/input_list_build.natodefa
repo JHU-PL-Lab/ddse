@@ -1,0 +1,40 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [0, 0, 1]
+# EXPECT-REQUIRED-INPUT-SEQUENCE-GENERATION-STEPS 50000
+
+let x = input in 
+
+let none = {last = true} in
+
+let rec list_build acc = 
+  let x = input in
+  if 0 == x then
+    acc
+  else
+    let new_acc = {last = false, elem = x, next = acc} in
+    list_build new_acc
+in
+
+let rec list_at r i = 
+  if i == 0 then
+    r.elem
+  else (
+    let next_r = r.next in
+    let sub_i = i - 1 in
+      list_at next_r sub_i
+  )
+  in
+
+let lst = list_build none in
+let v0 = list_at lst 0 in
+let v1 = list_at lst 1 in
+
+if v0 == x
+  #and ab.next.elem == x1
+  #and ab.next.next.elem == x2
+  #and ab.next.next.next.elem == x3
+  #and ab.next.next.next.next.elem == x4
+then
+  let target = 1 in 1
+else
+  0

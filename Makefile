@@ -31,4 +31,4 @@ clean:
 	rm -f sandbox
 
 benchmark:
-	ocaml bench/benchmark.ml
+	dune exec benchmark-test-generation/benchmark.exe

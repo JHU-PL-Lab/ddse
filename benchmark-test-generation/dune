@@ -1,0 +1,4 @@
+(executable
+  (name benchmark)
+  (public_name odefa.benchmark_test_generation)
+  (libraries shexp.process core))
