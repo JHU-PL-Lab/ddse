@@ -1,0 +1,26 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [4] !
+
+let y = input in
+let id x = x in 
+let rec f n =
+  if n <= 1 then
+    1
+  else 
+    n * (f (n-1))
+  in
+let rec g n =
+  if n <= 1 then
+    1
+  else 
+    n * (g (n-1))
+in 
+  # original testcase
+  # ((id f) 3) + ((id g) 4)
+  #
+  # our testcase
+  let sum = ((id f) 3) + ((id g) y) in
+  if (sum == 30) then
+    let target = 1 in 1
+  else 
+    0
