@@ -1,0 +1,20 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [2]
+
+let x = input in
+let id x = x in 
+let blur y = y in
+let rec lp a n =
+  if n <= 1 then
+    id a
+  else
+    let r = (blur id) true in
+    let s = (blur id) false in
+    let t = (blur lp) s (n-1) in
+    not t
+  in
+let r = lp false x in
+if r and 1 < x then
+  let target = 1 in 1
+else
+  0
