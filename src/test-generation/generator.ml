@@ -56,6 +56,7 @@ let input_sequence_from_solution
     (e : expr)
     (stop_var : Var.t)
   : int list =
+  let (get_value, _) = solution in
   let _, stop_stack =
     match stop_var with
     | Var(_,None) ->
@@ -76,7 +77,7 @@ let input_sequence_from_solution
     let relstack = relativize_stack stop_stack stack in
     let symbol = Symbol(x, relstack) in
     let value =
-      match solution symbol with
+      match get_value symbol with
       | None ->
         (* The solver had no value for us.  That means that this variable is
            unconstrained and we are free to pick as we please. *)

@@ -35,6 +35,7 @@ type t =
   | Constraint_binop of symbol * symbol * binary_operator * symbol (* x = x+x *)
   | Constraint_projection of symbol * symbol * ident (* x = x.l *)
   | Constraint_type of symbol * symbol_type (* x : t *)
+  | Constraint_stack of Relative_stack.concrete_stack (* stack = C *)
 [@@deriving eq, ord, show, to_yojson]
 ;;
 

@@ -230,6 +230,16 @@ struct
            (Solver.show log2.log_solver)
         );
         None
+      | Solver.Contradiction(Solver.StackContradiction(s1,s2)) ->
+        (lazy_logger `trace @@ fun () ->
+         Printf.sprintf
+           "Immediate contradiction of flows which resolve to different concrete stacks %s and %s.\nSet 1:\n%s\nSet 2:\n%s\n"
+           (Relative_stack.show_concrete_stack s1)
+           (Relative_stack.show_concrete_stack s2)
+           (Solver.show log1.log_solver)
+           (Solver.show log2.log_solver)
+        );
+        None
     in
     let merge_fn key a b =
       match a,b with

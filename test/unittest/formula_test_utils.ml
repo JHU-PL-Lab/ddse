@@ -76,7 +76,7 @@ let assert_solutions constraint_list solutions =
     assert_failure @@
     let msg = indent @@ string_of_constraint_list constraint_list in
     Printf.sprintf "Should NOT be able to solve constraints:\n%s" msg
-  | Some model ->
+  | Some (model, _) ->
     solutions
     |> List.iter
       (fun (symbol, expected_answer) ->

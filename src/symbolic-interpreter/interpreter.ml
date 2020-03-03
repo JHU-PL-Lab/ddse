@@ -162,7 +162,7 @@ let prepare_environment (e : expr) (cfg : ddpa_graph)
 type 'a interpreter_cache_key =
   | Cache_lookup :
       Ident.t list * annotated_clause * Relative_stack.t ->
-      (symbol * Relative_stack.concrete_stack) interpreter_cache_key
+      symbol interpreter_cache_key
 ;;
 
 module Interpreter_cache_key
@@ -290,7 +290,7 @@ struct
       (lookup_stack : Ident.t list)
       (acl0 : annotated_clause)
       (relstack : Relative_stack.t)
-    : (symbol * Relative_stack.concrete_stack) M.m =
+    : symbol M.m =
     let open M in
     let%bind acl1 = pick @@ preds acl0 env.le_cfg in
     let zeromsg msg () =
@@ -313,7 +313,8 @@ struct
     let recurse
         (lookup_stack' : Ident.t list)
         (acl0' : annotated_clause)
-        (relstack' : Relative_stack.t) =
+        (relstack' : Relative_stack.t)
+      : symbol M.m =
       lazy_logger `trace
         (fun () ->
            Printf.sprintf
@@ -373,9 +374,7 @@ struct
                 |> Ident_map.enum
                 |> Enum.map
                   (fun (lbl, Var(x,_)) ->
-                     (* We ignore the stacks here intentionally; see note 1 above. *)
-                     (* TODO: make sure note 1 justifies this case! *)
-                     let%bind (symbol, _) = recurse [x] acl1 relstack in
+                     let%bind symbol = recurse [x] acl1 relstack in
                      return (lbl, symbol)
                   )
                 |> List.of_enum
@@ -397,23 +396,19 @@ struct
           let%bind () = record_constraint @@
             Constraint.Constraint_value(lookup_symbol, constraint_value)
           in
-          (* If we're at the top of the program, we're finished.  Otherwise, start
-             a search for the first variable. *)
-          if equal_ident lookup_var env.le_first_var then begin
-            (* Then we've found the start of the program!  Build an
-               appropriate concrete stack. *)
-            lazy_logger `trace
-              (fun () -> "This lookup complete; top of program reached.");
-            return (lookup_symbol, Relative_stack.stackize relstack)
-          end else begin
-            lazy_logger `trace
-              (fun () ->
-                 "This lookup complete; resuming to top of program.");
-            let%bind (_, stack) =
-              recurse [env.le_first_var] acl1 relstack
-            in
-            return (lookup_symbol, stack)
-          end
+          (* If we're at the top of the program, we should record a stack
+             constraint. *)
+          let%bind () =
+            if equal_ident lookup_var env.le_first_var then begin
+              (* Then we've found the start of the program!  Build an
+                 appropriate concrete stack. *)
+              lazy_logger `trace
+                (fun () -> "Top of program reached: recording stack.");
+              record_constraint @@ Constraint.Constraint_stack(
+                Relative_stack.stackize relstack)
+            end else return ()
+          in
+          return lookup_symbol
         end;
         (* ### Input rule ### *)
         begin
@@ -433,23 +428,19 @@ struct
               Binary_operator_equal_to,
               lookup_symbol)
           in
-          (* If we're at the top of the program, we're finished.  Otherwise, start
-             a search for the first variable. *)
-          if equal_ident lookup_var env.le_first_var then begin
-            (* Then we've found the start of the program!  Build an
-               appropriate concrete stack. *)
-            lazy_logger `trace
-              (fun () -> "This lookup complete; top of program reached.");
-            return (lookup_symbol, Relative_stack.stackize relstack)
-          end else begin
-            lazy_logger `trace
-              (fun () ->
-                 "This lookup complete; resuming to top of program.");
-            let%bind (_, stack) =
-              recurse [env.le_first_var] acl1 relstack
-            in
-            return (lookup_symbol, stack)
-          end
+          (* If we're at the top of the program, we should record a stack
+             constraint. *)
+          let%bind () =
+            if equal_ident lookup_var env.le_first_var then begin
+              (* Then we've found the start of the program!  Build an
+                 appropriate concrete stack. *)
+              lazy_logger `trace
+                (fun () -> "Top of program reached: recording stack.");
+              record_constraint @@ Constraint.Constraint_stack(
+                Relative_stack.stackize relstack)
+            end else return ()
+          in
+          return lookup_symbol
         end;
         (* ### Value Discard rule ### *)
         begin
@@ -491,9 +482,8 @@ struct
             acl1
           in
           [%guard equal_ident x lookup_var];
-          (* We ignore the stacks here intentionally; see note 1 above. *)
-          let%bind (symbol1, _) = recurse [x'] acl1 relstack in
-          let%bind (symbol2, _) = recurse [x''] acl1 relstack in
+          let%bind symbol1 = recurse [x'] acl1 relstack in
+          let%bind symbol2 = recurse [x''] acl1 relstack in
           let lookup_symbol = Symbol(lookup_var, relstack) in
           let%bind () = record_constraint @@
             Constraint.Constraint_binop(lookup_symbol, symbol1, op, symbol2)
@@ -508,10 +498,7 @@ struct
             raise @@ Jhupllib.Utils.Not_yet_implemented
               "Non-singleton lookup stack in Binop rule!"
           end;
-          let%bind (_, stack) =
-            recurse [env.le_first_var] acl1 relstack
-          in
-          return (lookup_symbol, stack)
+          return lookup_symbol
         end;
         (* ### Function Enter Parameter rule ### *)
         begin
@@ -528,7 +515,7 @@ struct
           let cc = Ident_map.find xr env.le_clause_mapping in
           let%bind () = record_decision relstack x cc x' in
           (* Look up the definition of the function. *)
-          let%bind (function_symbol, _) = recurse [xf] acl1 relstack' in
+          let%bind function_symbol = recurse [xf] acl1 relstack' in
           (* Require this function be assigned to that variable. *)
           let fv = Ident_map.find x env.le_function_parameter_mapping in
           let%bind () = record_constraint @@
@@ -552,9 +539,7 @@ struct
           let cc = Ident_map.find xr env.le_clause_mapping in
           let%bind () = record_decision relstack x'' cc x' in
           (* Look up the definition of the function. *)
-          let%bind (function_symbol, _) =
-            recurse [xf] acl1 relstack'
-          in
+          let%bind function_symbol = recurse [xf] acl1 relstack' in
           (* Require this function be assigned to that variable. *)
           let fv = Ident_map.find x'' env.le_function_parameter_mapping in
           let%bind () = record_constraint @@
@@ -577,7 +562,7 @@ struct
           [%guard equal_ident x lookup_var];
           (* Look up the definition point of the function. *)
           let%orzero Abs_clause(Abs_var xr, Abs_appl_body(Abs_var xf, _)) = c in
-          let%bind (function_symbol, _) =
+          let%bind function_symbol =
             recurse [xf] (Unannotated_clause(c)) relstack
           in
           (* Require this function be assigned to that variable. *)
@@ -606,7 +591,7 @@ struct
           let%orzero Nonbinding_enter_clause(av,c) = acl1 in
           let%orzero Abs_clause(_, Abs_conditional_body(Abs_var x1, _, _)) = c in
           (* Look up the subject symbol. *)
-          let%bind (subject_symbol, _) =
+          let%bind subject_symbol =
             recurse [x1] (Unannotated_clause c) relstack
           in
           (* Require that it has the same value as the wiring node. *)
@@ -630,7 +615,7 @@ struct
           let Abs_var e1ret = retv e1 in
           [%guard equal_ident x' e1ret];
           (* Look up the subject symbol. *)
-          let%bind (subject_symbol, _) =
+          let%bind subject_symbol =
             recurse [x1] (Unannotated_clause c) relstack
           in
           (* Require that its value matches this conditional branch. *)
@@ -653,7 +638,7 @@ struct
           let Abs_var e2ret = retv e2 in
           [%guard equal_ident x' e2ret];
           (* Look up the subject symbol. *)
-          let%bind (subject_symbol, _) =
+          let%bind subject_symbol =
             recurse [x1] (Unannotated_clause c) relstack
           in
           (* Require that its value matches this conditional branch. *)
@@ -677,7 +662,7 @@ struct
           [%guard equal_ident x lookup_var];
           (* Look up the record itself and identify the symbol it uses. *)
           (* We ignore the stacks here intentionally; see note 1 above. *)
-          let%bind (record_symbol, _) = recurse [x'] acl1 relstack in
+          let%bind record_symbol = recurse [x'] acl1 relstack in
           (* Now record the constraint that the lookup variable must be the
              projection of the label from that record. *)
           let lookup_symbol = Symbol(lookup_var, relstack) in
@@ -695,12 +680,8 @@ struct
             raise @@ Jhupllib.Utils.Not_yet_implemented
               "Non-singleton lookup stack in Binop rule!"
           end;
-          (* Now check to make sure that this control flow exists. *)
-          let%bind (_, stack) =
-            recurse [env.le_first_var] acl1 relstack
-          in
           (* And we're finished. *)
-          return (lookup_symbol, stack)
+          return lookup_symbol
         end;
         (* Start-of-block and end-of-block handling (not actually a rule) *)
         begin
@@ -712,7 +693,7 @@ struct
     let%bind m = pick @@ List.enum rule_computations in m
   ;;
 
-  type evaluation = Evaluation of Relative_stack.concrete_stack M.evaluation;;
+  type evaluation = Evaluation of unit M.evaluation;;
 
   let start (cfg : ddpa_graph) (e : expr) (program_point : ident) : evaluation =
     let open M in
@@ -727,14 +708,14 @@ struct
         raise @@ Invalid_query(
           Printf.sprintf "Variable %s is not defined" (show_ident program_point))
     in
-    let m : Relative_stack.concrete_stack m =
+    let m : unit m =
       (* At top level, we don't actually need the returned symbol; we just want
          the concrete stack it produces.  The symbol is only used to generate
          formulae, which we'll get from the completed computations. *)
-      let%bind _, stack =
+      let%bind _ =
         lookup env [initial_lookup_var] acl Relative_stack.empty
       in
-      return stack
+      return ()
     in
     let m_eval = start m in
     Evaluation(m_eval)
@@ -748,25 +729,27 @@ struct
       |> Enum.filter_map
         (fun evaluation_result ->
            match Solver.solve evaluation_result.M.er_solver with
-           | Some f ->
+           | Some (_, None) ->
+             raise @@ Jhupllib.Utils.Invariant_failure
+               "no stack constraint in solution!"
+           | Some (get_value, Some stack) ->
              begin
                lazy_logger `trace (fun () ->
                    Printf.sprintf
                      "Discovered answer of stack %s and formulae:\n%s"
-                     (Relative_stack.show_concrete_stack evaluation_result.M.er_value)
+                     (Relative_stack.show_concrete_stack stack)
                      (Solver.show evaluation_result.M.er_solver)
                  )
              end;
              Some {er_solver = evaluation_result.M.er_solver;
-                   er_stack = evaluation_result.M.er_value;
-                   er_solution = f
+                   er_stack = stack;
+                   er_solution = get_value
                   }
            | None ->
              begin
                lazy_logger `trace (fun () ->
                    Printf.sprintf
-                     "Dismissed answer of stack %s with unsolvable formulae:\n%s"
-                     (Relative_stack.show_concrete_stack evaluation_result.M.er_value)
+                     "Dismissed answer with unsolvable formulae:\n%s"
                      (Solver.show evaluation_result.M.er_solver)
                  )
              end;

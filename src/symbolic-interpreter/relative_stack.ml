@@ -10,7 +10,7 @@ open Pp_utils;;
 type concrete_stack =
     Concrete_stack of Ident.t list
 [@@ocaml.unboxed]
-[@@deriving eq, ord, show]
+[@@deriving eq, ord, show, to_yojson]
 ;;
 
 (** The type of relative stacks in the symbolic interpreter. *)

@@ -16,12 +16,15 @@ open Pp_utils;;
 (** A description of contradictions which may appear during the closure of a
     constraint set.  Each constructor represents a different contradiction case:
 
+      * the inclusion of two dissonant stack constraints
       * the assignment of dissonant types to a particular symbol
       * the assignment of distinct values to a particular symbol
       * the assignment to a symbol of a record projection using a label that the
         subject does not contain
 *)
 type contradiction =
+  | StackContradiction of
+      Relative_stack.concrete_stack * Relative_stack.concrete_stack
   | TypeContradiction of
       symbol * Constraint.symbol_type * Constraint.symbol_type
   | ValueContradiction of symbol * Constraint.value * Constraint.value
@@ -36,7 +39,9 @@ exception Contradiction of contradiction;;
 type t;;
 
 (** The type of solutions. *)
-type solution = symbol -> Ast.value option;;
+type solution =
+  (symbol -> Ast.value option) * Relative_stack.concrete_stack option
+;;
 
 (** The empty solver. *)
 val empty : t;;

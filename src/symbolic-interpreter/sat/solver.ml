@@ -8,6 +8,8 @@ open Interpreter_types;;
 open Symbol_cache;;
 
 type contradiction =
+  | StackContradiction of
+      Relative_stack.concrete_stack * Relative_stack.concrete_stack
   | TypeContradiction of
       symbol * Constraint.symbol_type * Constraint.symbol_type
   | ValueContradiction of symbol * value * value
@@ -47,10 +49,17 @@ type t =
     (** An index of all symbol type constraints.  Because each symbol must have
         exactly one type, this is a normal dictionary. *)
     type_constraints_by_symbol : symbol_type Symbol_map.t;
+
+    (** The unique stack constraint which may appear in this solver.  Only one
+        stack constraint may appear in any particular solver because all stack
+        constraints contradict with one another. *)
+    stack_constraint : Relative_stack.concrete_stack option;
   }
 ;;
 
-type solution = symbol -> Ast.value option;;
+type solution =
+  (symbol -> Ast.value option) * Relative_stack.concrete_stack option
+;;
 
 let empty =
   { constraints = Constraint.Set.empty;
@@ -59,6 +68,7 @@ let empty =
     projection_constraints_by_record_symbol =
       Symbol_to_symbol_and_ident_multimap.empty;
     type_constraints_by_symbol = Symbol_map.empty;
+    stack_constraint = None;
   }
 ;;
 
@@ -141,6 +151,22 @@ let rec _add_constraints_and_close
                 end;
                 Symbol_map.add x t solver.type_constraints_by_symbol;
               end;
+          }
+        | Constraint_stack(s) ->
+          begin
+            match solver.stack_constraint with
+            | Some s' ->
+              begin
+                if Relative_stack.equal_concrete_stack s s' then
+                  ()
+                else
+                  raise @@ Contradiction(StackContradiction(s,s'))
+              end;
+            | None -> ()
+          end;
+          { solver with
+            constraints = Constraint.Set.add c solver.constraints;
+            stack_constraint = Some s;
           }
       in
       let new_constraints : Constraint.Set.t =
@@ -230,6 +256,8 @@ let rec _add_constraints_and_close
           Symbol_to_symbol_multimap.find x solver.alias_constraints_by_symbol
           |> Enum.map (fun x' -> Constraint_type(x',t))
           |> Constraint.Set.of_enum
+        | Constraint_stack _ ->
+          Constraint.Set.empty
       in
       _add_constraints_and_close
         (Constraint.Set.union new_constraints constraints)
@@ -329,16 +357,18 @@ let z3_constraint_of_constraint
     let%bind z3x3 = translate_symbol x3 in
     let binary_c = Z3.Boolean.mk_eq ctx z3x1 (fn z3x2 z3x3) in
     ( match op with
-    | Binary_operator_divide
-    | Binary_operator_modulus -> (
-      let%bind z3zero = translate_value (Int(0)) in
-      let is_zero = Z3.Boolean.mk_eq ctx z3x3 z3zero in
-      let not_zero = Z3.Boolean.mk_not ctx is_zero in
-      Some([binary_c; not_zero]))
-    | _ -> Some ([binary_c]) )
+      | Binary_operator_divide
+      | Binary_operator_modulus -> (
+          let%bind z3zero = translate_value (Int(0)) in
+          let is_zero = Z3.Boolean.mk_eq ctx z3x3 z3zero in
+          let not_zero = Z3.Boolean.mk_not ctx is_zero in
+          Some([binary_c; not_zero]))
+      | _ -> Some ([binary_c]) )
   | Constraint_projection _ ->
     None
   | Constraint_type _ ->
+    None
+  | Constraint_stack _ ->
     None
 ;;
 
@@ -398,7 +428,7 @@ let solve (solver : t) : solution option =
               | None -> None
             end
         in
-        Some get_value
+        Some(get_value, solver.stack_constraint)
     end
   | Z3.Solver.UNSATISFIABLE ->
     (* Return no dictionary. *)
