@@ -8,12 +8,12 @@ let x2 = input in
 let none = {last = true} in
 
 # a = [1; 2]
-let a1 = {last = false, elem = 2, next = none} in
-let a =  {last = false, elem = 1, next = a1} in
+let a1 = {last = false, elem = x1, next = none} in
+let a =  {last = false, elem = x0, next = a1} in
 
 # b = [3; 4; 5]
 let b2 = {last = false, elem = 5, next = none} in
-let b1 = {last = false, elem = 4, next = b2} in
+let b1 = {last = false, elem = x2, next = b2} in
 let b =  {last = false, elem = 3, next = b1} in
 
 # d = [a, b]
@@ -42,6 +42,9 @@ let result = flatten d in
 if result.elem == x0
     and result.next.elem == x1
     and result.next.next.next.elem == x2
+    and x0 == 1
+    and x1 == 2
+    and x2 == 4
 then
   let target = 1 in 1
 else

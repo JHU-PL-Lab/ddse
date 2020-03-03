@@ -1,0 +1,25 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [ 0 ]
+# EXPECT-REQUIRED-INPUT-SEQUENCE-GENERATION-STEPS 30000
+
+let x1 = input in
+let x2 = input in
+let x3 = input in
+let x4 = input in
+
+let formula = {
+  x1 = (x1 == 1),
+  x2 = (x2 == 1),
+  x3 = (x3 == 1),
+  x4 = (x4 == 1)
+} in
+let phi formula =
+  (formula.x1 or (not (formula.x2)) or (not (formula.x3))) and
+  ((not (formula.x2)) or (not (formula.x3))) and
+  (formula.x4 or formula.x2)
+in
+let result = phi formula in
+if result then
+  let target = 1 in 1
+else
+  0

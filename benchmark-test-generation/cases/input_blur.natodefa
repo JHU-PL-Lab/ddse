@@ -14,7 +14,7 @@ let rec lp a n =
     not t
   in
 let r = lp false x in
-if r and 1 < x then
+if r then
   let target = 1 in 1
 else
   0

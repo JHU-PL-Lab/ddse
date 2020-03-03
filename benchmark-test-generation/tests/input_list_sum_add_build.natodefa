@@ -41,7 +41,7 @@ let lst2 = list_map adder lst in
 
 let s = sum_list lst2 in
 
-if (s == 10) then
+if (s == 10) and (lst2.next.elem == 5) then
   let target = 1 in 1
 else
   0

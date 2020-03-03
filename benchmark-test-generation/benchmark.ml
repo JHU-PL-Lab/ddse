@@ -35,8 +35,8 @@ let benchmark test n : unit t =
   print test
   (* time gtimeout --foreground 1m ls *)
   >> stdout_to ~append:() test_result (call [
-    "/usr/bin/time"; "-o"; test_time_result;
-    "/usr/bin/timeout"; "--foreground"; "1m" ;"./test_generator"; "-t"; "target"; "-b"; "true"; test_path])
+      "/usr/bin/time"; "-o"; test_time_result;
+      "/usr/bin/timeout"; "--foreground"; "1m" ;"./test_generator"; "-t"; "target"; "-r"; "1"; "-b"; "true"; test_path])
   >> echo @@ " done - " ^ (string_of_int n)
 (* |- run "tee" ["-a"; result_file] *)
 
