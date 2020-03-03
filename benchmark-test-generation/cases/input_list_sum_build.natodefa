@@ -1,0 +1,36 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [0]
+# EXPECT-REQUIRED-INPUT-SEQUENCE-GENERATION-STEPS 20000
+
+let x = input in
+
+let none = {last = true} in
+
+let rec list_build acc = 
+  let x = input in
+  if 0 == x then
+    acc
+  else
+    let new_acc = {last = false, elem = x, next = acc} in
+    list_build new_acc
+in
+
+let rec sum_list l = 
+  if l.last then
+    0
+  else
+    l.elem + (sum_list (l.next))
+  in
+  
+let lst = list_build none in
+
+let make_adder s a = a + s in
+let adder = make_adder y in
+let lst2 = list_map adder lst in
+
+let s = sum_list lst2 in
+
+if (s == 10) then
+  let target = 1 in 1
+else
+  0

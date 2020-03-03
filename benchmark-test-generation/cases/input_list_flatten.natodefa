@@ -1,0 +1,48 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [1, 2, 4] !
+
+let x0 = input in
+let x1 = input in
+let x2 = input in
+
+let none = {last = true} in
+
+# a = [1; 2]
+let a1 = {last = false, elem = 2, next = none} in
+let a =  {last = false, elem = 1, next = a1} in
+
+# b = [3; 4; 5]
+let b2 = {last = false, elem = 5, next = none} in
+let b1 = {last = false, elem = 4, next = b2} in
+let b =  {last = false, elem = 3, next = b1} in
+
+# d = [a, b]
+# through the original is [a, [b]]
+let d1 = {last = false, elem = b, next = none} in
+let d =  {last = false, elem = a, next = d1} in
+
+let rec append l1 l2 = 
+  if l1.last then
+    l2
+  else
+    let next2 = append (l1.next) l2 in
+    {last = false, elem = l1.elem, next = next2}
+in
+
+# flatten: 'a list list -> 'a list
+let rec flatten r = 
+  if r.last then
+    r
+  else 
+    let rfed = flatten (r.next) in
+    append (r.elem) rfed
+  in
+
+let result = flatten d in
+if result.elem == x0
+    and result.next.elem == x1
+    and result.next.next.next.elem == x2
+then
+  let target = 1 in 1
+else
+  0
