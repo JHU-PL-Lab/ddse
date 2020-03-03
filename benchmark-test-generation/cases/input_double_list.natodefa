@@ -1,0 +1,35 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [0]
+
+let y = input in
+
+let none = {last = true} in
+
+let rec list_build acc = 
+  let x = input in
+  if 0 == x then
+    acc
+  else
+    let new_acc = {last = false, elem = x, next = acc} in
+    list_build new_acc
+  in
+
+let rec list_length r =
+  if r.last then
+    0
+  else
+    let next_r = r.next in
+    let subl = list_length next_r in
+    1 + subl
+  in
+
+let la = list_build none in
+let lb = list_build none in
+
+let len_a = list_length la in
+let len_b = list_length lb in
+
+if len_a == 2 * len_b and len_b == y then
+  let target = 1 in 1
+else
+  0

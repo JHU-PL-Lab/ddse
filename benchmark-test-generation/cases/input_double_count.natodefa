@@ -1,0 +1,22 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [0]
+
+let y = input in
+
+let none = {last = true} in
+
+let rec count d = 
+  let x = input in
+  if 0 == x then
+    0
+  else
+    1 + (count d)
+  in
+
+let ca = count 0 in
+let cb = count 0 in
+
+if ca == 2 * cb and 2 < cb and cb == y then
+  let target = 1 in 1
+else
+  0
