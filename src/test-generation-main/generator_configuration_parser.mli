@@ -16,6 +16,7 @@ type generator_args = {
   ga_maximum_results : int option;
   ga_exploration_policy :
     Odefa_symbolic_interpreter.Interpreter.exploration_policy;
+  ga_compact_output : bool;
 };;
 
 (** Parses the command line arguments.  If a parse error occurs, this function

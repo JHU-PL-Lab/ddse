@@ -66,8 +66,13 @@ let () =
         args.ga_target_point
     in
     let generation_callback (inputs : int list) (steps : int) : unit =
-      Printf.printf "Input sequence: [%s]\nGenerated in %d steps.\n\n"
-        (String.join ", " @@ List.map string_of_int inputs) steps;
+      if args.ga_compact_output then (
+        Printf.printf "[%s]\n%d\n"
+          (String.join "," @@ List.map string_of_int inputs) steps
+      ) else (
+        Printf.printf "Input sequence: [%s]\nGenerated in %d steps.\n"
+          (String.join ", " @@ List.map string_of_int inputs) steps
+      );
       flush stdout;
       results_remaining := (Option.map (fun n -> n - 1) !results_remaining);
       if !results_remaining = Some 0 then begin
@@ -83,12 +88,20 @@ let () =
             generator
         in
         let answer_count = List.length answers in
-        Printf.printf "%d answer%s generated\n"
-          answer_count (if answer_count = 1 then "" else "s");
-        if Option.is_none generator_opt then
-          print_endline "No further control flows exist."
-        else
-          print_endline "Further control flows may exist."
+        if args.ga_compact_output then (
+          Printf.printf "%d\n" answer_count;
+          if Option.is_none generator_opt then
+            print_endline "no"
+          else
+            print_endline "yes"
+        ) else (
+          Printf.printf "%d answer%s generated\n"
+            answer_count (if answer_count = 1 then "" else "s");
+          if Option.is_none generator_opt then
+            print_endline "No further control flows exist."
+          else
+            print_endline "Further control flows may exist."
+        )
       with
       | GenerationComplete ->
         print_endline "Requested input sequences found; terminating.";

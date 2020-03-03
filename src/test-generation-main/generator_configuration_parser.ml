@@ -17,6 +17,7 @@ type generator_args = {
   ga_maximum_steps : int option;
   ga_maximum_results : int option;
   ga_exploration_policy : exploration_policy;
+  ga_compact_output : bool;
 };;
 
 let named_exploration_policies =
@@ -115,6 +116,7 @@ type parsers =
     parse_max_results : int BatOptParse.Opt.t;
     parse_exploration_policy : exploration_policy BatOptParse.Opt.t;
     parse_logging : unit BatOptParse.Opt.t;
+    parse_compact_output : bool BatOptParse.Opt.t;
   }
 ;;
 
@@ -185,6 +187,12 @@ let make_parsers () : parsers =
              |> String.concat "\n  "
            )
         );
+    parse_compact_output =
+      single_value_parser
+        "COMPACT_OUTPUT"
+        (Some ("Specifies whether the output is compact of descriptive\n"))
+        None
+        (fun x -> try Some (bool_of_string x) with | Failure _ -> None);
     parse_logging = logging_option_parser;
   }
 ;;
@@ -234,6 +242,11 @@ let parse_args () : generator_args =
     ~short_name:'e'
     ~long_name:"exploration-policy"
     parsers.parse_exploration_policy;
+  BatOptParse.OptParser.add
+    cli_parser
+    ~short_name:'b'
+    ~long_name:"compact-output"
+    parsers.parse_compact_output;
   (* **** Perform parse **** *)
   let positional_args = BatOptParse.OptParser.parse_argv cli_parser in
   try
@@ -256,6 +269,10 @@ let parse_args () : generator_args =
           parsers.parse_max_results.BatOptParse.Opt.option_get ();
         ga_exploration_policy =
           insist "Exploration policy" parsers.parse_exploration_policy;
+        ga_compact_output =
+          match (parsers.parse_compact_output.BatOptParse.Opt.option_get ()) with
+          | Some b -> b
+          | None -> false
       }
     | _::extras ->
       raise @@ ParseFailure(
