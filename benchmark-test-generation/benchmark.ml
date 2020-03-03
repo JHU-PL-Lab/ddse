@@ -4,12 +4,16 @@ open Shexp_process.Infix
 (* open Shexp_process.Logged *)
 
 let testcases = [
+  "input_blur.natodefa";
   "input_eta.natodefa";
+  "input_list_flatten.natodefa";
   "input_k_cfa_2.natodefa";
   "input_k_cfa_3.natodefa";
   "input_map.natodefa";
   "input_mj09.natodefa";
-  (* "input_facehugger.natodefa"; *)
+  "input_facehugger.natodefa";
+  "input_sat_1.natodefa";
+  "input_sat_1_direct.natodefa";
 ]
 
 let repeat_n = 3
