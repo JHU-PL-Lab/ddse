@@ -1,0 +1,3 @@
+[0]
+1220
+Requested input sequences found; terminating.

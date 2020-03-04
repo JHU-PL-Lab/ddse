@@ -1,0 +1,3 @@
+[2,1,2,2]
+811
+Requested input sequences found; terminating.
