@@ -485,8 +485,11 @@ struct
 
     type out = Out.t;;
 
-    (** A task is a pairing between a monadic value and the destination to which
-        its value should be sent upon completion. *)
+    (** A task is a computation together with the place to which its
+        value should be sent upon completion.  The Cache_task constructor
+        specifies a cache destination (to resume a blocked computation).  The
+        Result_task constructor's place is implicitly the output of the overall
+        computation. *)
     type _ task =
       | Cache_task : 'a Cache_key.t * 'a m -> 'a task
       | Result_task : out m -> out task
