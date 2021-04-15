@@ -133,7 +133,7 @@ let prepare_environment (e : expr) (cfg : ddpa_graph)
          let c1 = List.enum clauses in
          let c2 = List.enum clauses in
          Enum.drop 1 c1;
-         Enum.combine (c1,c2)
+         Enum.combine c1 c2
          |> Enum.map
            (fun (Clause(Var(x,_),_),clause) -> (x,clause))
       )

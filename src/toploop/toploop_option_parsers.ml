@@ -160,19 +160,19 @@ let analyze_variables_option =
                 let components =
                   analyze_string
                   |> String.lchop ~n:5
-                  |> (fun x -> String.nsplit x ~by:",")
+                  |> (fun x -> String.split_on_string x ~by:",")
                 in
                 let parse_component component =
                   begin
-                    match String.nsplit component ~by:"@" with
+                    match String.split_on_string component ~by:"@" with
                     | [name] -> (name, None, None)
                     | [name;rest] ->
                       begin
-                        match String.nsplit rest ~by:":" with
+                        match String.split_on_string rest ~by:":" with
                         | [loc] -> (name, Some loc, None)
                         | [loc;stack] ->
                           begin
-                            let stack_elements = String.nsplit stack ~by:"|" in
+                            let stack_elements = String.split_on_string stack ~by:"|" in
                             (name, Some loc, Some stack_elements)
                           end
                         | _ -> raise @@ Option_error (option_name,
