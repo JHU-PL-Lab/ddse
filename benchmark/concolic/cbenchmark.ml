@@ -8,14 +8,18 @@ let make_one fname =
     match
       (* translate as part of the benchmark *)
       let pgm = Dj_common.Convert.jil_ast_of_convert source in
-      Concolic.Driver.test_expr pgm ~global_timeout_sec:90.0 ~random:true
+      Concolic.Driver.test_expr pgm
+        ~global_timeout_sec:90.0 ~random:true ~print_result:false
     with
     | Found_abort _ | Type_mismatch _ -> ()
     | _ -> assert false (* we are only benchmarking erroring programs here! *)
   in
   (Filename.basename fname, run, source)
 
-let bench_many ~trials tests =
+let bench_throughput ~sec tests =
+  Benchmark.throughputN sec tests
+
+let bench_trials ~trials tests =
   Benchmark.latencyN (Int64.of_int trials) tests
 
 let ls_dir dir =
@@ -59,13 +63,22 @@ let bench_main =
       value & flag &
       info ["recpaths"] ~doc:"Recursively search directories for files"
     )
-  and+ trials = Cmdliner.Arg.(
+  and+ sec = Cmdliner.Arg.(
       value & opt int 10
+      & info ["sec"] ~docv:"SECONDS"
+      ~doc:"Minumum benchmarking time, in seconds. Ignored if trials are given"
+    )
+  and+ trials = Cmdliner.Arg.(
+      value & opt (some int) None
       & info ["trials"] ~docv:"TRIALS" ~doc:"Number of trials"
     )
   in
   let tests = find_bluejay_files ~recpaths paths |> List.map make_one in
-  let _res = bench_many ~trials tests in
+  let _res =
+    match trials with
+    | Some n -> bench_trials ~trials:n tests
+    | None -> bench_throughput ~sec tests
+  in
   ()
 
 let () =
