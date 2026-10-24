@@ -40,7 +40,7 @@ module Test_result =
 
 (*
   ----------------------
-  TESTING BY EXPRESSIONS   
+  TESTING BY EXPRESSIONS
   ----------------------
 *)
 
@@ -68,11 +68,12 @@ let test_with_timeout : (Jayil.Ast.expr -> Test_result.t) Options.Fun.t =
           CLog.app (fun m -> m "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec);
           Test_result.Timeout
 
-let[@landmark] test_expr : (Jayil.Ast.expr -> Test_result.t) Options.Fun.t =
-  Options.Fun.map
-    test_with_timeout
-    (fun r -> Format.printf "\n%s\n" (Test_result.to_string r); r)
-
+let[@landmark] test_expr ?(print_result=true) : (Jayil.Ast.expr -> Test_result.t) Options.Fun.t =
+  let f r =
+    if print_result then Format.printf "\n%s\n" (Test_result.to_string r);
+    r
+  in
+  Options.Fun.map test_with_timeout f
 
 (*
   -------------------
@@ -82,12 +83,12 @@ let[@landmark] test_expr : (Jayil.Ast.expr -> Test_result.t) Options.Fun.t =
 
 let test_jil : (string -> Test_result.t) Options.Fun.t =
   let open Options.Fun in
-  test_expr
+  test_expr ~print_result:true
   @. Dj_common.File_utils.read_source
 
 let test_bjy : (string -> Test_result.t) Options.Fun.t =
   let open Options.Fun in
-  test_expr
+  test_expr ~print_result:true
   @. (fun filename ->
     filename
     |> Dj_common.File_utils.read_source_full ~do_instrument:true ~do_wrap:true
@@ -97,7 +98,7 @@ let test : (string -> Test_result.t) Options.Fun.t =
   Options.Fun.make
   @@ fun r ->
       fun filename ->
-      match Core.Filename.split_extension filename with 
+      match Core.Filename.split_extension filename with
       | _, Some "jil" -> Options.Fun.appl test_jil r filename
       | _, Some "bjy" -> Options.Fun.appl test_bjy r filename
       | _ -> failwith "expected jil or bjy file"
