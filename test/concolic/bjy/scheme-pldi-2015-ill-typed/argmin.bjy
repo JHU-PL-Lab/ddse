@@ -1,0 +1,23 @@
+
+let is_cons xs =
+  match xs with
+  | hd :: tl -> true
+  | _ -> false
+  end
+in
+
+let min x y =
+  if x < y then x else y
+in
+
+let rec argmin (type a) (f : a -> int) (xs : {. List a | is_cons }) : a =
+  match xs with
+  | x :: tl ->
+    match tl with
+    | [] -> f x # ERROR: returns int, not a
+    | rest -> min (f x) (argmin a f rest)
+    end
+  end
+in
+
+argmin
